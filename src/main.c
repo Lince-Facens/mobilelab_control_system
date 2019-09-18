@@ -22,11 +22,30 @@
 /* ----- LED definitions --------------------------------------------------- */
 #define mainLED_1	GPIO_Pin_13
 
+/* Private define ------------------------------------------------------------*/
+#define TxBufferSize   (countof(TxBuffer) - 1)
+#define RxBufferSize   5
+
+/* Private macro -------------------------------------------------------------*/
+#define countof(a)   (sizeof(a) / sizeof(*(a)))
+
+/* Private variables ---------------------------------------------------------*/
+USART_InitTypeDef USART_InitStructure;
+uint8_t TxBuffer[] =
+		"\n\rUSART Hyperterminal Hardware Flow Control Example: USART - \
+Hyperterminal communication using hardware flow control\n\r";
+uint8_t RxBuffer[RxBufferSize];
+uint8_t NbrOfDataToTransfer = TxBufferSize;
+uint8_t TxCounter = 0;
+uint8_t RxCounter = 0;
+
+
 /* ----- Private method definitions ---------------------------------------- */
 static void prvSetupHardware(void);
 
 /* ----- Task definitions -------------------------------------------------- */
-static void prvBlinkTask(void *pvParameters);
+static void prvTransmitTask(void *pvParameters);
+static void prvReceiveTask(void *pvParameters);
 
 /* ----- Main -------------------------------------------------------------- */
 int main()
@@ -35,12 +54,20 @@ int main()
 	prvSetupHardware();
 
 	/* Create the tasks */
-	xTaskCreate(prvBlinkTask, /* Pointer to the task entry function */
-	"Blink", /* Name for the task */
-	configMINIMAL_STACK_SIZE, /* The size of the stack */
-	NULL, /* Pointer to parameters for the task */
-	mainBLINK_TASK_PRIORITY, /* The priority for the task */
-	NULL); /* Handle for the created task */
+
+	xTaskCreate(prvTransmitTask, /* Pointer to the task entry function */
+				"Blink2", /* Name for the task */
+				configMINIMAL_STACK_SIZE, /* The size of the stack */
+				NULL, /* Pointer to parameters for the task */
+				mainBLINK_TASK_PRIORITY, /* The priority for the task */
+				NULL); /* Handle for the created task */
+
+	xTaskCreate(prvReceiveTask, /* Pointer to the task entry function */
+				"Blink3", /* Name for the task */
+				configMINIMAL_STACK_SIZE, /* The size of the stack */
+				NULL, /* Pointer to parameters for the task */
+				mainBLINK_TASK_PRIORITY + 1, /* The priority for the task */
+				NULL); /* Handle for the created task */
 
 	/* Start the scheduler */
 	vTaskStartScheduler();
@@ -55,36 +82,41 @@ int main()
 }
 
 /*-----------------------------------------------------------*/
-static void prvBlinkTask(void *pvParameters)
+static void prvTransmitTask(void *pvParameters)
 {
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC | RCC_APB2Periph_AFIO, ENABLE);
-
-	/* Set up the LED outputs */
-	GPIO_InitTypeDef GPIO_InitStructure;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Pin = mainLED_1;
-	GPIO_Init(GPIOC, &GPIO_InitStructure);
-
-	GPIO_SetBits(GPIOC, mainLED_1);
-
-	/* The parameter in vTaskDelayUntil is the absolute time
-	 * in ticks at which you want to be woken calculated as
-	 * an increment from the time you were last woken. */
-	TickType_t xNextWakeTime;
-	/* Initialize xNextWakeTime - this only needs to be done once. */
-	xNextWakeTime = xTaskGetTickCount();
-
 	while (1)
 	{
+		int aux = NbrOfDataToTransfer;
+		while (aux--)
+		{
+			USART_SendData(USART1, TxBuffer[TxCounter++]);
+			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET)
+				;
+		}
+		TxCounter = 0;
+	}
+}
 
-		/* LED on for 25 ms */
-		GPIO_ResetBits(GPIOC, mainLED_1);
-		vTaskDelayUntil(&xNextWakeTime, 25 / portTICK_PERIOD_MS);
+static void prvReceiveTask(void *pvParameters)
+{
+	TickType_t xNextWakeTime;
+	xNextWakeTime = xTaskGetTickCount();
+	GPIO_SetBits(GPIOC, mainLED_1);
+	while (1)
+	{
+		RxBuffer[RxCounter++] = USART_ReceiveData(USART1);
 
-		/* LED off for 1000 ms */
-		GPIO_SetBits(GPIOC, mainLED_1);
-		vTaskDelayUntil(&xNextWakeTime, 1000 / portTICK_PERIOD_MS);
+		if (RxBuffer[RxCounter-1] != 0) {
+			GPIO_ResetBits(GPIOC, mainLED_1);
+			vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
+			GPIO_SetBits(GPIOC, mainLED_1);
+				vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
+		}
+
+		RxCounter = (RxCounter + 1) % RxBufferSize;
+		if (RxCounter == 100) {
+			int a = RxCounter + 1;
+		}
 	}
 }
 
@@ -94,6 +126,41 @@ static void prvSetupHardware(void)
 {
 	/* Ensure that all 4 interrupt priority bits are used as the pre-emption priority. */
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
+
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA |
+						   RCC_APB2Periph_GPIOC |
+						   RCC_APB2Periph_USART1 |
+						   RCC_APB2Periph_AFIO, ENABLE);
+
+	/* Set up the LED outputs */
+	GPIO_InitTypeDef GPIO_InitStructure;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_InitStructure.GPIO_Pin = mainLED_1;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+	/* Configure USART2 RTS and USART2 Tx as alternate function push-pull */
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+	/* Configure USART2 CTS and USART2 Rx as input floating */
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+	USART_InitStructure.USART_BaudRate = 9600;
+	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+	USART_InitStructure.USART_StopBits = USART_StopBits_1;
+	USART_InitStructure.USART_Parity = USART_Parity_No;
+	USART_InitStructure.USART_HardwareFlowControl =
+			USART_HardwareFlowControl_None;
+	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+
+	USART_Init(USART1, &USART_InitStructure);
+	/* Enable the USART2 */
+	USART_Cmd(USART1, ENABLE);
 }
 /*-----------------------------------------------------------*/
 
