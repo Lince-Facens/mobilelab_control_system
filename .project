@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>mobilelab_data_gathering</name>
+    <name>mobilelab_data_gathering</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -20,8 +20,124 @@
 	</buildSpec>
 	<natures>
 		<nature>org.eclipse.cdt.core.cnature</nature>
-		<nature>org.eclipse.cdt.core.ccnature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>libs/FreeRTOS/croutine.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/croutine.c</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/event_groups.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/event_groups.c</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/list.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/list.c</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/queue.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/queue.c</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/readme.txt</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/readme.txt</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/tasks.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/tasks.c</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/timers.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/timers.c</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/FreeRTOS.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/FreeRTOS.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/StackMacros.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/StackMacros.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/croutine.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/croutine.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/event_groups.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/event_groups.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/list.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/list.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/mpu_wrappers.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/mpu_wrappers.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/portable.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/portable.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/projdefs.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/projdefs.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/queue.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/queue.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/semphr.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/semphr.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/stdint.readme</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/stdint.readme</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/task.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/task.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/include/timers.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/include/timers.h</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/portable/MemMang/heap_1.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/portable/MemMang/heap_1.c</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/portable/GCC/ARM_CM3/port.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/portable/GCC/ARM_CM3/port.c</locationURI>
+		</link>
+		<link>
+			<name>libs/FreeRTOS/portable/GCC/ARM_CM3/portmacro.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FreeRTOS/FreeRTOSv10.2.1/Source/portable/GCC/ARM_CM3/portmacro.h</locationURI>
+		</link>
+	</linkedResources>
 </projectDescription>
