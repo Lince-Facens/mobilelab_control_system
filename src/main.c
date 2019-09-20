@@ -37,13 +37,11 @@ ADC_InitTypeDef ADC_InitStructure;
 DMA_InitTypeDef DMA_InitStructure;
 uint32_t status;
 __IO uint16_t ADC_values[ARRAYSIZE];
-uint8_t TxBuffer[] =
-		"\n\rUSART Hyperterminal Hardware Flow Control Example: USART - \
-		 Hyperterminal communication using hardware flow control\n\r";
 uint8_t RxBuffer[RxBufferSize];
 uint8_t NbrOfDataToTransfer = TxBufferSize;
 uint8_t TxCounter = 0;
 uint8_t RxCounter = 0;
+uint8_t SensorsMessageTx[] = "s:0000b:0000a:0000\n";
 
 /* ----- Private method definitions ---------------------------------------- */
 static void prvSetupHardware(void);
@@ -58,6 +56,7 @@ void DMA_Configuration(void);
 void ADC_Configuration(void);
 void USART_Configuration(void);
 void TIM_Configuration(void);
+void prvConstructSensorsMessage(void);
 
 /* ----- Main -------------------------------------------------------------- */
 int main()
@@ -94,34 +93,56 @@ int main()
 /*-----------------------------------------------------------*/
 static void prvBlinkTask(void *pvParameters)
 {
-	TickType_t xNextWakeTime;
-		xNextWakeTime = xTaskGetTickCount();
 	while (1)
 	{
 		int a = ADC_values[1];
-		vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
+		vTaskDelay(50 / portTICK_PERIOD_MS);
 	}
+}
+
+/*
+ * Mount message to send
+ * Format: s:0000b:0000a:0000
+ * Where s -> steering direction
+ *       b -> brake
+ *       a -> acceleration
+ * */
+void prvConstructSensorsMessage(void)
+{
+	/* TODO: be sure that this is the actual order */
+	uint16_t steering     = ADC_values[0]; // Channel 0
+	uint16_t brake        = ADC_values[1]; // Channel 1
+	uint16_t acceleration = ADC_values[2]; // Channel 2
+
+	SensorsMessageTx[2] = '0' + (steering / 1000);
+	SensorsMessageTx[3] = '0' + (steering / 100) % 10;
+	SensorsMessageTx[4] = '0' + (steering / 10) % 10;
+	SensorsMessageTx[5] = '0' + steering % 10;
+
+	SensorsMessageTx[8] = '0' + brake / 1000;
+	SensorsMessageTx[9] = '0' + (brake / 100) % 10;
+	SensorsMessageTx[10] = '0' + (brake / 10) % 10;
+	SensorsMessageTx[11] = '0' + brake % 10;
+
+	SensorsMessageTx[14] = '0' + acceleration / 1000;
+	SensorsMessageTx[15] = '0' + (acceleration / 100) % 10;
+	SensorsMessageTx[16] = '0' + (acceleration / 10) % 10;
+	SensorsMessageTx[17] = '0' + acceleration % 10;
 }
 
 static void prvTransmitTask(void *pvParameters)
 {
-	TickType_t xNextWakeTime;
-	xNextWakeTime = xTaskGetTickCount();
-	GPIO_SetBits(GPIOC, LED);
+	int i = 0;
+
 	while (1)
 	{
-		int aux = NbrOfDataToTransfer;
-		while (aux--)
-		{
-			USART_SendData(USART1, TxBuffer[TxCounter++]);
-			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET)
-				;
-			GPIO_ResetBits(GPIOC, LED);
-				vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
-			GPIO_SetBits(GPIOC, LED);
-				vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
+		prvConstructSensorsMessage();
+
+		for (i = 0; i < countof(SensorsMessageTx); ++i) {
+			USART_SendData(USART1, SensorsMessageTx[TxCounter++]);
+			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+
 		}
-		TxCounter = 0;
 	}
 }
 
@@ -199,9 +220,9 @@ void ADC_Configuration(void)
 	ADC_InitStructure.ADC_NbrOfChannel = 3;
 	ADC_Init(ADC1, &ADC_InitStructure);
 	/* ADC1 regular channels configuration */
-	ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 0, ADC_SampleTime_28Cycles5);
-	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_28Cycles5);
-	ADC_RegularChannelConfig(ADC1, ADC_Channel_2, 2, ADC_SampleTime_28Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 1, ADC_SampleTime_28Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 2, ADC_SampleTime_28Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_2, 3, ADC_SampleTime_28Cycles5);
 	/* Enable ADC1 DMA */
 	ADC_DMACmd(ADC1, ENABLE);
 

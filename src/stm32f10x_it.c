@@ -72,7 +72,6 @@ void DMA1_Channel1_IRQHandler(void)
 		status = 1;
 		//Clear DMA1 interrupt pending bits
 		DMA_ClearITPendingBit(DMA1_IT_GL1);
-//	  }
 	}
 }
 
