@@ -38,7 +38,7 @@ uint32_t status;
 __IO uint16_t ADC_values[ARRAYSIZE];
 uint8_t RxBuffer[RxBufferSize];
 uint8_t SensorsMessageTx[] = "s:0000b:0000a:0000\n";
-uint8_t ActuatorsMessageRx[] = "s:0000b:0000a:0000\n";
+uint8_t ActuatorsMessageRx[] = "s:0000b:0000a:0000";
 
 /* ----- Private method definitions ---------------------------------------- */
 static void prvSetupHardware(void);
@@ -54,6 +54,7 @@ void ADC_Configuration(void);
 void USART_Configuration(void);
 void TIM_Configuration(void);
 void prvConstructSensorsMessage(void);
+int prvIsNumber(char c);
 
 /* ----- Main -------------------------------------------------------------- */
 int main()
@@ -93,10 +94,22 @@ static void prvReceiveActuatorsDataTask(void *pvParameters)
 	int RxBufferCount;
 	while (1)
 	{
-		while (USART_ReceiveData(USART1) != 's');
+		/* I don't know why, but I need to do this twice.
+		 * This is not totally stable, need a quick fix
+		 * */
+		while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+		while (USART_ReceiveData(USART1) != 's') ;
+		while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+		while (USART_ReceiveData(USART1) != 's') ;
 
 		for (RxBufferCount = 1; RxBufferCount < countof(ActuatorsMessageRx); ++RxBufferCount) {
+			while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
 			ActuatorsMessageRx[RxBufferCount] = USART_ReceiveData(USART1);
+
+		}
+
+		if (prvVerifyActuatorsMessage()) {
+			volatile int a = 1;
 		}
 	}
 }
@@ -112,9 +125,11 @@ static void prvTransmitTask(void *pvParameters)
 		for (i = 0; i < countof(SensorsMessageTx); ++i) {
 			USART_SendData(USART1, SensorsMessageTx[i]);
 			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
-
 		}
+
+		vTaskDelay(50 / portTICK_PERIOD_MS);
 	}
+
 }
 
 int prvVerifyActuatorsMessage(void)
@@ -274,7 +289,7 @@ void ADC_Configuration(void)
 	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
 	ADC_InitStructure.ADC_NbrOfChannel = 3;
 	ADC_Init(ADC1, &ADC_InitStructure);
-	/* ADC1 regular channels configuration */
+	/* ADC1 regular channels configuratio//	GPIO_InitTypeDef GPIO_InitStructure;n */
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 1, ADC_SampleTime_28Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 2, ADC_SampleTime_28Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_2, 3, ADC_SampleTime_28Cycles5);
@@ -338,7 +353,6 @@ void DMA_Configuration(void)
  */
 void RCC_Configuration(void)
 {
-//	RCC_ADCCLKConfig(RCC_PCLK2_Div4);
 	/* TIM3 clock enable */
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
 
@@ -346,27 +360,13 @@ void RCC_Configuration(void)
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB |
 						 RCC_APB2Periph_GPIOC | RCC_APB2Periph_AFIO, ENABLE);
 
-	/* ADCCLK = PCLK2/4 */
-//	RCC_ADCCLKConfig(RCC_PCLK2_Div4);
-
-	/* Enable peripheral clocks ------------------------------------------------*/
-	/* Enable DMA1 and DMA2 clocks */
+	/* Enable DMA1 clocks */
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
 
 	/* Enable ADC1, ADC2, ADC3 and GPIOC clocks */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
 
-//	RCC_ADCCLKConfig(RCC_PCLK2_Div4);
-
-	/* Enable TIM3 clocks */
-//		RCC_APB2PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
-
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-//	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | // 0x00000004
-//						   RCC_APB2Periph_GPIOC | // 0x00000010
-//						   RCC_APB2Periph_USART1 |// 0x00004000
-//						   RCC_APB2Periph_AFIO, ENABLE); // 0x00004000
-
 
 }
 
@@ -386,7 +386,6 @@ void GPIO_Configuration(void)
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Set up the LED outputs */
-//	GPIO_InitTypeDef GPIO_InitStructure;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Pin = LED;
