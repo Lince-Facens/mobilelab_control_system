@@ -14,6 +14,7 @@
 
 /* System includes */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* Priorities at which the tasks are created. */
@@ -40,10 +41,12 @@ uint32_t status;
 __IO uint16_t ADC_values[ARRAYSIZE];
 uint8_t RxBuffer[RxBufferSize];
 uint8_t SensorsMessageTx[] = "s:0000b:0000a:0000\n";
-uint8_t ActuatorsMessageRx[] = "s:0000b:0000a:0000";
+uint8_t ActuatorsMessageRx[] = "s:000b:000a:000";
 uint16_t steering_actuator;
 uint16_t brake_actuator;
 uint16_t acceleration_actuator;
+uint16_t Timer3Period = (uint16_t) 665;
+__IO uint8_t actuatorsMsgStatus = (uint8_t) 0;
 
 /* ----- Private method definitions ---------------------------------------- */
 static void prvSetupHardware(void);
@@ -62,7 +65,7 @@ void TIM_Configuration(void);
 void prvConstructSensorsMessage(void);
 int prvIsNumber(char c);
 int prvCharToInt(char c);
-uint8_t prvActuatorsSensorsMessage(void);
+uint8_t prvConstructActuatorsSensorsMessage(void);
 
 /* ----- Main -------------------------------------------------------------- */
 int main()
@@ -105,9 +108,36 @@ int main()
 
 static void prvTransmitPWMTask(void *pvParameters)
 {
+	GPIO_SetBits(GPIOC, LED);
+	TickType_t xNextWakeTime;
+	xNextWakeTime = xTaskGetTickCount();
+
 	while(1)
 	{
+		if (actuatorsMsgStatus) {
 
+			uint16_t steering_period     = (steering_actuator*Timer3Period)/100;
+			uint16_t brake_period        = (brake_actuator*Timer3Period)/100;
+			uint16_t acceleration_period = (acceleration_actuator*Timer3Period)/100;
+			/* Set steering value */
+			if (TIM_GetCapture1(TIM3) != steering_period) {
+				TIM_SetCompare1(TIM3, steering_period);
+			}
+			/* Set brake value */
+			if (TIM_GetCapture2(TIM3) != brake_period) {
+				TIM_SetCompare2(TIM3, brake_period);
+			}
+			/* Set acceleration value */
+			if (TIM_GetCapture3(TIM3) != acceleration_period) {
+				TIM_SetCompare3(TIM3, acceleration_period);
+			}
+
+			GPIO_ResetBits(GPIOC, LED);
+			vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
+			GPIO_SetBits(GPIOC, LED);
+			vTaskDelayUntil(&xNextWakeTime, 200 / portTICK_PERIOD_MS);
+		}
+		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
 }
 
@@ -132,8 +162,10 @@ static void prvReceiveActuatorsDataTask(void *pvParameters)
 		}
 
 		if (prvVerifyActuatorsMessage()) {
-			prvActuatorsSensorsMessage();
+			actuatorsMsgStatus = prvConstructActuatorsSensorsMessage();
 		}
+
+		vTaskDelay(50 / portTICK_PERIOD_MS);
 	}
 }
 
@@ -161,32 +193,29 @@ int prvVerifyActuatorsMessage(void)
 
 	/* Check if basic structure of message is maintained */
 	if (ActuatorsMessageRx[0]  != 's' || ActuatorsMessageRx[1] != ':' ||
-		ActuatorsMessageRx[6]  != 'b' || ActuatorsMessageRx[7] != ':' ||
-		ActuatorsMessageRx[12] != 'a' || ActuatorsMessageRx[13] != ':') {
+		ActuatorsMessageRx[5]  != 'b' || ActuatorsMessageRx[6] != ':' ||
+		ActuatorsMessageRx[10] != 'a' || ActuatorsMessageRx[11] != ':') {
 		ret = 0;
 	}
 
 	/* Check if steering value is a valid integer */
 	if (!prvIsNumber(ActuatorsMessageRx[2]) ||
 		!prvIsNumber(ActuatorsMessageRx[3]) ||
-		!prvIsNumber(ActuatorsMessageRx[4]) ||
-		!prvIsNumber(ActuatorsMessageRx[5])) {
+		!prvIsNumber(ActuatorsMessageRx[4])) {
 		ret = 0;
 	}
 
 	/* Check if brake value is a valid integer */
-	if (!prvIsNumber(ActuatorsMessageRx[8]) ||
-		!prvIsNumber(ActuatorsMessageRx[9]) ||
-		!prvIsNumber(ActuatorsMessageRx[10]) ||
-		!prvIsNumber(ActuatorsMessageRx[11])) {
+	if (!prvIsNumber(ActuatorsMessageRx[7]) ||
+		!prvIsNumber(ActuatorsMessageRx[8]) ||
+		!prvIsNumber(ActuatorsMessageRx[9])) {
 		ret = 0;
 	}
 
 	/* Check if acceleration value is a valid integer */
-	if (!prvIsNumber(ActuatorsMessageRx[14]) ||
-		!prvIsNumber(ActuatorsMessageRx[15]) ||
-		!prvIsNumber(ActuatorsMessageRx[16]) ||
-		!prvIsNumber(ActuatorsMessageRx[17])) {
+	if (!prvIsNumber(ActuatorsMessageRx[12]) ||
+		!prvIsNumber(ActuatorsMessageRx[13]) ||
+		!prvIsNumber(ActuatorsMessageRx[14])) {
 		ret = 0;
 	}
 
@@ -208,38 +237,60 @@ int prvIsNumber(char c)
 
 	return ret;
 }
-
+/* Create the tasks */
+//	xTaskCreate(prvReceiveActuatorsDataTask,	/* Pointer to the task entry function */
+//				"Actuators_receive",			/* Name for the task */
+//				configMINIMAL_STACK_SIZE,		/* The size of the stack */
+//				NULL,							/* Pointer to parameters for the task */
+//				receiveActuators_TASK_PRIORITY,	/* The priority for the task */
+//				NULL);							/* Handle for the created task */
+//
+//	xTaskCreate(prvTransmitSensorsDataTask,		/* Pointer to the task entry function */
+//				"Sensors_Transmit",				/* Name for the task */
+//				configMINIMAL_STACK_SIZE,		/* The size of the stack */
+//				NULL,							/* Pointer to parameters for the task */
+//				transmitSensors_TASK_PRIORITY,	/* The priority for the task */
+//				NULL);
 int prvCharToInt(char c)
 {
 	return c - '0';
 }
 
-uint8_t prvActuatorsSensorsMessage(void)
+/*
+ * The expected values varies from 0 to 100
+ *  */
+uint8_t prvConstructActuatorsSensorsMessage(void)
 {
 	uint8_t ret = 1;
+	uint8_t steering_buffer[3], brake_buffer[3], acceleration_buffer[3];
 	steering_actuator = brake_actuator = acceleration_actuator = 0;
 
-	steering_actuator = prvCharToInt(ActuatorsMessageRx[5]) * 1000 +
-						prvCharToInt(ActuatorsMessageRx[4]) * 100 +
-						prvCharToInt(ActuatorsMessageRx[3]) * 10 +
-						prvCharToInt(ActuatorsMessageRx[2]);
+	steering_buffer[0] = ActuatorsMessageRx[2];
+	steering_buffer[1] = ActuatorsMessageRx[3];
+	steering_buffer[2] = ActuatorsMessageRx[4];
 
-	brake_actuator = prvCharToInt(ActuatorsMessageRx[11]) * 1000 +
-					 prvCharToInt(ActuatorsMessageRx[10]) * 100 +
-					 prvCharToInt(ActuatorsMessageRx[9]) * 10 +
-					 prvCharToInt(ActuatorsMessageRx[8]);
+	brake_buffer[0] = ActuatorsMessageRx[7];
+	brake_buffer[1] = ActuatorsMessageRx[8];
+	brake_buffer[2] = ActuatorsMessageRx[9];
 
-	acceleration_actuator= prvCharToInt(ActuatorsMessageRx[17]) * 1000 +
-						   prvCharToInt(ActuatorsMessageRx[16]) * 100 +
-						   prvCharToInt(ActuatorsMessageRx[15]) * 10 +
-						   prvCharToInt(ActuatorsMessageRx[14]);
+	acceleration_buffer[0] = ActuatorsMessageRx[12];
+	acceleration_buffer[1] = ActuatorsMessageRx[13];
+	acceleration_buffer[2] = ActuatorsMessageRx[14];
 
-	if (steering_actuator > 4095 ||
-		brake_actuator > 4095 ||
-		acceleration_actuator + 4095) {
+	steering_actuator 	  = atoi(steering_buffer);
+	brake_actuator 		  = atoi(brake_buffer);
+	acceleration_actuator = atoi(acceleration_buffer);
+
+	if (steering_actuator > 100 ||
+		brake_actuator > 100 ||
+		acceleration_actuator > 100) {
 		ret = 0;
 		steering_actuator = brake_actuator = acceleration_actuator = 0;
 	}
+
+//	steering_actuator     = steering_actuator     == 100 ? 99 : steering_actuator;
+//	brake_actuator 		  = brake_actuator        == 100 ? 99 : brake_actuator;
+//	acceleration_actuator = acceleration_actuator == 100 ? 99 : acceleration_actuator;
 
 	return ret;
 }
@@ -278,13 +329,11 @@ void TIM_Configuration(void)
 {
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 	TIM_OCInitTypeDef  TIM_OCInitStructure;
-	uint16_t CCR1_Val = 333;
-	uint16_t CCR2_Val = 249;
 
 	/* Compute the prescaler value */
 	int PrescalerValue = (uint16_t) (SystemCoreClock / 24000000) - 1;
 	/* Time base configuration */
-	TIM_TimeBaseStructure.TIM_Period = 665;
+	TIM_TimeBaseStructure.TIM_Period = Timer3Period ;
 	TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
 	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
@@ -294,7 +343,7 @@ void TIM_Configuration(void)
 	/* PWM1 Mode configuration: Channel1 */
 	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
 	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCInitStructure.TIM_Pulse = CCR1_Val;
+	TIM_OCInitStructure.TIM_Pulse = 0;
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 
 	TIM_OC1Init(TIM3, &TIM_OCInitStructure);
@@ -303,11 +352,17 @@ void TIM_Configuration(void)
 
 	/* PWM1 Mode configuration: Channel2 */
 	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCInitStructure.TIM_Pulse = CCR2_Val;
+	TIM_OCInitStructure.TIM_Pulse = 0;
 
 	TIM_OC2Init(TIM3, &TIM_OCInitStructure);
-
 	TIM_OC2PreloadConfig(TIM3, TIM_OCPreload_Enable);
+
+	/* PWM1 Mode configuration: Channel3 */
+	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+	TIM_OCInitStructure.TIM_Pulse = 0;
+
+	TIM_OC3Init(TIM3, &TIM_OCInitStructure);
+	TIM_OC3PreloadConfig(TIM3, TIM_OCPreload_Enable);
 
 	TIM_ARRPreloadConfig(TIM3, ENABLE);
 
@@ -470,6 +525,12 @@ void GPIO_Configuration(void)
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+	/* Configure PWM outputs TIM3_CH3 */
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOB, &GPIO_InitStructure);
 }
 
 /**
