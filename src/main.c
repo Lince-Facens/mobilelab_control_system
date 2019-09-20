@@ -21,7 +21,6 @@
 
 /* ----- LED definitions --------------------------------------------------- */
 #define LED	GPIO_Pin_13
-#define TxBufferSize   (countof(TxBuffer) - 1)
 #define RxBufferSize   5
 
 /* Private typedef -----------------------------------------------------------*/
@@ -38,16 +37,14 @@ DMA_InitTypeDef DMA_InitStructure;
 uint32_t status;
 __IO uint16_t ADC_values[ARRAYSIZE];
 uint8_t RxBuffer[RxBufferSize];
-uint8_t NbrOfDataToTransfer = TxBufferSize;
-uint8_t TxCounter = 0;
-uint8_t RxCounter = 0;
 uint8_t SensorsMessageTx[] = "s:0000b:0000a:0000\n";
+uint8_t ActuatorsMessageRx[] = "s:0000b:0000a:0000\n";
 
 /* ----- Private method definitions ---------------------------------------- */
 static void prvSetupHardware(void);
 
 /* ----- Task definitions -------------------------------------------------- */
-static void prvBlinkTask(void *pvParameters);
+static void prvReceiveActuatorsDataTask(void *pvParameters);
 static void prvTransmitTask(void *pvParameters);
 void RCC_Configuration(void);
 void GPIO_Configuration(void);
@@ -65,7 +62,7 @@ int main()
 	prvSetupHardware();
 
 	/* Create the tasks */
-	xTaskCreate(prvBlinkTask,					/* Pointer to the task entry function */
+	xTaskCreate(prvReceiveActuatorsDataTask,					/* Pointer to the task entry function */
 				"Blink",						/* Name for the task */
 				configMINIMAL_STACK_SIZE,		/* The size of the stack */
 				NULL,							/* Pointer to parameters for the task */
@@ -91,13 +88,87 @@ int main()
 }
 
 /*-----------------------------------------------------------*/
-static void prvBlinkTask(void *pvParameters)
+static void prvReceiveActuatorsDataTask(void *pvParameters)
 {
+	int RxBufferCount;
 	while (1)
 	{
-		int a = ADC_values[1];
-		vTaskDelay(50 / portTICK_PERIOD_MS);
+		while (USART_ReceiveData(USART1) != 's');
+
+		for (RxBufferCount = 1; RxBufferCount < countof(ActuatorsMessageRx); ++RxBufferCount) {
+			ActuatorsMessageRx[RxBufferCount] = USART_ReceiveData(USART1);
+		}
 	}
+}
+
+static void prvTransmitTask(void *pvParameters)
+{
+	int i = 0;
+
+	while (1)
+	{
+		prvConstructSensorsMessage();
+
+		for (i = 0; i < countof(SensorsMessageTx); ++i) {
+			USART_SendData(USART1, SensorsMessageTx[i]);
+			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+
+		}
+	}
+}
+
+int prvVerifyActuatorsMessage(void)
+{
+	int ret = 1;
+
+	/* Check if basic structure of message is maintained */
+	if (ActuatorsMessageRx[0]  != 's' || ActuatorsMessageRx[1] != ':' ||
+		ActuatorsMessageRx[6]  != 'b' || ActuatorsMessageRx[7] != ':' ||
+		ActuatorsMessageRx[12] != 'a' || ActuatorsMessageRx[13] != ':') {
+		ret = 0;
+	}
+
+	/* Check if steering value is a valid integer */
+	if (!prvIsNumber(ActuatorsMessageRx[2]) ||
+		!prvIsNumber(ActuatorsMessageRx[3]) ||
+		!prvIsNumber(ActuatorsMessageRx[4]) ||
+		!prvIsNumber(ActuatorsMessageRx[5])) {
+		ret = 0;
+	}
+
+	/* Check if brake value is a valid integer */
+	if (!prvIsNumber(ActuatorsMessageRx[8]) ||
+		!prvIsNumber(ActuatorsMessageRx[9]) ||
+		!prvIsNumber(ActuatorsMessageRx[10]) ||
+		!prvIsNumber(ActuatorsMessageRx[11])) {
+		ret = 0;
+	}
+
+	/* Check if acceleration value is a valid integer */
+	if (!prvIsNumber(ActuatorsMessageRx[14]) ||
+		!prvIsNumber(ActuatorsMessageRx[15]) ||
+		!prvIsNumber(ActuatorsMessageRx[16]) ||
+		!prvIsNumber(ActuatorsMessageRx[17])) {
+		ret = 0;
+	}
+
+	/* TODO: Verify if each value is in the limit range value */
+
+	return ret;
+}
+
+/*
+ * Check if the input char is a number
+ */
+int prvIsNumber(char c)
+{
+	int ret = 1;
+
+	if (c < '0' || c > '9') {
+		ret = 0;
+	}
+
+	return ret;
 }
 
 /*
@@ -128,22 +199,6 @@ void prvConstructSensorsMessage(void)
 	SensorsMessageTx[15] = '0' + (acceleration / 100) % 10;
 	SensorsMessageTx[16] = '0' + (acceleration / 10) % 10;
 	SensorsMessageTx[17] = '0' + acceleration % 10;
-}
-
-static void prvTransmitTask(void *pvParameters)
-{
-	int i = 0;
-
-	while (1)
-	{
-		prvConstructSensorsMessage();
-
-		for (i = 0; i < countof(SensorsMessageTx); ++i) {
-			USART_SendData(USART1, SensorsMessageTx[TxCounter++]);
-			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
-
-		}
-	}
 }
 
 void TIM_Configuration(void)
