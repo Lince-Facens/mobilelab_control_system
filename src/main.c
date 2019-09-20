@@ -17,7 +17,9 @@
 #include <string.h>
 
 /* Priorities at which the tasks are created. */
-#define mainBLINK_TASK_PRIORITY				(tskIDLE_PRIORITY + 1)
+#define receiveActuators_TASK_PRIORITY				(tskIDLE_PRIORITY + 2)
+#define transmitSensors_TASK_PRIORITY				(tskIDLE_PRIORITY + 2)
+#define transmitPWM_TASK_PRIORITY					(tskIDLE_PRIORITY + 1)
 
 /* ----- LED definitions --------------------------------------------------- */
 #define LED	GPIO_Pin_13
@@ -39,13 +41,17 @@ __IO uint16_t ADC_values[ARRAYSIZE];
 uint8_t RxBuffer[RxBufferSize];
 uint8_t SensorsMessageTx[] = "s:0000b:0000a:0000\n";
 uint8_t ActuatorsMessageRx[] = "s:0000b:0000a:0000";
+uint16_t steering_actuator;
+uint16_t brake_actuator;
+uint16_t acceleration_actuator;
 
 /* ----- Private method definitions ---------------------------------------- */
 static void prvSetupHardware(void);
 
 /* ----- Task definitions -------------------------------------------------- */
 static void prvReceiveActuatorsDataTask(void *pvParameters);
-static void prvTransmitTask(void *pvParameters);
+static void prvTransmitSensorsDataTask(void *pvParameters);
+static void prvTransmitPWMTask(void *pvParameters);
 void RCC_Configuration(void);
 void GPIO_Configuration(void);
 void NVIC_Configuration(void);
@@ -55,6 +61,8 @@ void USART_Configuration(void);
 void TIM_Configuration(void);
 void prvConstructSensorsMessage(void);
 int prvIsNumber(char c);
+int prvCharToInt(char c);
+uint8_t prvActuatorsSensorsMessage(void);
 
 /* ----- Main -------------------------------------------------------------- */
 int main()
@@ -63,18 +71,25 @@ int main()
 	prvSetupHardware();
 
 	/* Create the tasks */
-	xTaskCreate(prvReceiveActuatorsDataTask,					/* Pointer to the task entry function */
-				"Blink",						/* Name for the task */
+	xTaskCreate(prvReceiveActuatorsDataTask,	/* Pointer to the task entry function */
+				"Actuators_receive",			/* Name for the task */
 				configMINIMAL_STACK_SIZE,		/* The size of the stack */
 				NULL,							/* Pointer to parameters for the task */
-				mainBLINK_TASK_PRIORITY+1,		/* The priority for the task */
+				receiveActuators_TASK_PRIORITY,	/* The priority for the task */
 				NULL);							/* Handle for the created task */
 
-	xTaskCreate(prvTransmitTask,				/* Pointer to the task entry function */
-				"Blink2",						/* Name for the task */
+	xTaskCreate(prvTransmitSensorsDataTask,		/* Pointer to the task entry function */
+				"Sensors_Transmit",				/* Name for the task */
 				configMINIMAL_STACK_SIZE,		/* The size of the stack */
 				NULL,							/* Pointer to parameters for the task */
-				mainBLINK_TASK_PRIORITY,		/* The priority for the task */
+				transmitSensors_TASK_PRIORITY,	/* The priority for the task */
+				NULL);
+
+	xTaskCreate(prvTransmitPWMTask,				/* Pointer to the task entry function */
+				"Actuators_PWM",				/* Name for the task */
+				configMINIMAL_STACK_SIZE,		/* The size of the stack */
+				NULL,							/* Pointer to parameters for the task */
+				transmitPWM_TASK_PRIORITY,		/* The priority for the task */
 				NULL);
 
 	/* Start the scheduler */
@@ -86,6 +101,14 @@ int main()
 	to be created.  See the memory management section on the FreeRTOS web site
 	for more details. */
 	while (1);
+}
+
+static void prvTransmitPWMTask(void *pvParameters)
+{
+	while(1)
+	{
+
+	}
 }
 
 /*-----------------------------------------------------------*/
@@ -109,12 +132,12 @@ static void prvReceiveActuatorsDataTask(void *pvParameters)
 		}
 
 		if (prvVerifyActuatorsMessage()) {
-			volatile int a = 1;
+			prvActuatorsSensorsMessage();
 		}
 	}
 }
 
-static void prvTransmitTask(void *pvParameters)
+static void prvTransmitSensorsDataTask(void *pvParameters)
 {
 	int i = 0;
 
@@ -186,6 +209,41 @@ int prvIsNumber(char c)
 	return ret;
 }
 
+int prvCharToInt(char c)
+{
+	return c - '0';
+}
+
+uint8_t prvActuatorsSensorsMessage(void)
+{
+	uint8_t ret = 1;
+	steering_actuator = brake_actuator = acceleration_actuator = 0;
+
+	steering_actuator = prvCharToInt(ActuatorsMessageRx[5]) * 1000 +
+						prvCharToInt(ActuatorsMessageRx[4]) * 100 +
+						prvCharToInt(ActuatorsMessageRx[3]) * 10 +
+						prvCharToInt(ActuatorsMessageRx[2]);
+
+	brake_actuator = prvCharToInt(ActuatorsMessageRx[11]) * 1000 +
+					 prvCharToInt(ActuatorsMessageRx[10]) * 100 +
+					 prvCharToInt(ActuatorsMessageRx[9]) * 10 +
+					 prvCharToInt(ActuatorsMessageRx[8]);
+
+	acceleration_actuator= prvCharToInt(ActuatorsMessageRx[17]) * 1000 +
+						   prvCharToInt(ActuatorsMessageRx[16]) * 100 +
+						   prvCharToInt(ActuatorsMessageRx[15]) * 10 +
+						   prvCharToInt(ActuatorsMessageRx[14]);
+
+	if (steering_actuator > 4095 ||
+		brake_actuator > 4095 ||
+		acceleration_actuator + 4095) {
+		ret = 0;
+		steering_actuator = brake_actuator = acceleration_actuator = 0;
+	}
+
+	return ret;
+}
+
 /*
  * Mount message to send
  * Format: s:0000b:0000a:0000
@@ -196,24 +254,24 @@ int prvIsNumber(char c)
 void prvConstructSensorsMessage(void)
 {
 	/* TODO: be sure that this is the actual order */
-	uint16_t steering     = ADC_values[0]; // Channel 0
-	uint16_t brake        = ADC_values[1]; // Channel 1
-	uint16_t acceleration = ADC_values[2]; // Channel 2
+	uint16_t steering_sensor     = ADC_values[0]; // Channel 0
+	uint16_t brake_sensor        = ADC_values[1]; // Channel 1
+	uint16_t acceleration_sensor = ADC_values[2]; // Channel 2
 
-	SensorsMessageTx[2] = '0' + (steering / 1000);
-	SensorsMessageTx[3] = '0' + (steering / 100) % 10;
-	SensorsMessageTx[4] = '0' + (steering / 10) % 10;
-	SensorsMessageTx[5] = '0' + steering % 10;
+	SensorsMessageTx[2] = '0' + (steering_sensor / 1000);
+	SensorsMessageTx[3] = '0' + (steering_sensor / 100) % 10;
+	SensorsMessageTx[4] = '0' + (steering_sensor / 10) % 10;
+	SensorsMessageTx[5] = '0' + steering_sensor % 10;
 
-	SensorsMessageTx[8] = '0' + brake / 1000;
-	SensorsMessageTx[9] = '0' + (brake / 100) % 10;
-	SensorsMessageTx[10] = '0' + (brake / 10) % 10;
-	SensorsMessageTx[11] = '0' + brake % 10;
+	SensorsMessageTx[8] = '0' + brake_sensor / 1000;
+	SensorsMessageTx[9] = '0' + (brake_sensor / 100) % 10;
+	SensorsMessageTx[10] = '0' + (brake_sensor / 10) % 10;
+	SensorsMessageTx[11] = '0' + brake_sensor % 10;
 
-	SensorsMessageTx[14] = '0' + acceleration / 1000;
-	SensorsMessageTx[15] = '0' + (acceleration / 100) % 10;
-	SensorsMessageTx[16] = '0' + (acceleration / 10) % 10;
-	SensorsMessageTx[17] = '0' + acceleration % 10;
+	SensorsMessageTx[14] = '0' + acceleration_sensor / 1000;
+	SensorsMessageTx[15] = '0' + (acceleration_sensor / 100) % 10;
+	SensorsMessageTx[16] = '0' + (acceleration_sensor / 10) % 10;
+	SensorsMessageTx[17] = '0' + acceleration_sensor % 10;
 }
 
 void TIM_Configuration(void)
