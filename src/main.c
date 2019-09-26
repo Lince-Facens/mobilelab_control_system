@@ -17,6 +17,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Donkeycar or mobile robotics approach defines */
+#define DONKEY
+// #define ROBOTICS
+
+
 /* Priorities at which the tasks are created. */
 #define receiveActuators_TASK_PRIORITY				(tskIDLE_PRIORITY + 2)
 #define transmitSensors_TASK_PRIORITY				(tskIDLE_PRIORITY + 2)
@@ -29,7 +34,11 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 #define ADC1_DR    ((uint32_t)0x4001244C)
+#ifdef DONKEY
+#define ARRAYSIZE 5
+#else
 #define ARRAYSIZE 3
+#endif
 
 /* Private macro -------------------------------------------------------------*/
 #define countof(a)   (sizeof(a) / sizeof(*(a)))
@@ -131,7 +140,7 @@ static void prvTransmitPWMTask(void *pvParameters)
 			if (TIM_GetCapture3(TIM3) != acceleration_period) {
 				TIM_SetCompare3(TIM3, acceleration_period);
 			}
-
+			//	GPIO_InitTypeDef GPIO_InitStructure;n
 			GPIO_ResetBits(GPIOC, LED);
 			vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
 			GPIO_SetBits(GPIOC, LED);
@@ -237,20 +246,8 @@ int prvIsNumber(char c)
 
 	return ret;
 }
-/* Create the tasks */
-//	xTaskCreate(prvReceiveActuatorsDataTask,	/* Pointer to the task entry function */
-//				"Actuators_receive",			/* Name for the task */
-//				configMINIMAL_STACK_SIZE,		/* The size of the stack */
-//				NULL,							/* Pointer to parameters for the task */
-//				receiveActuators_TASK_PRIORITY,	/* The priority for the task */
-//				NULL);							/* Handle for the created task */
-//
-//	xTaskCreate(prvTransmitSensorsDataTask,		/* Pointer to the task entry function */
-//				"Sensors_Transmit",				/* Name for the task */
-//				configMINIMAL_STACK_SIZE,		/* The size of the stack */
-//				NULL,							/* Pointer to parameters for the task */
-//				transmitSensors_TASK_PRIORITY,	/* The priority for the task */
-//				NULL);
+
+
 int prvCharToInt(char c)
 {
 	return c - '0';
@@ -400,12 +397,24 @@ void ADC_Configuration(void)
 	ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
 	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
 	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
+
+#ifdef DONKEY
+	ADC_InitStructure.ADC_NbrOfChannel = 5;
+#else
 	ADC_InitStructure.ADC_NbrOfChannel = 3;
+#endif
+
 	ADC_Init(ADC1, &ADC_InitStructure);
-	/* ADC1 regular channels configuratio//	GPIO_InitTypeDef GPIO_InitStructure;n */
+	/* ADC1 regular channels configuration */
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 1, ADC_SampleTime_28Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 2, ADC_SampleTime_28Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_2, 3, ADC_SampleTime_28Cycles5);
+
+#ifdef DONKEY
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 4, ADC_SampleTime_28Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 5, ADC_SampleTime_28Cycles5);
+#endif
+
 	/* Enable ADC1 DMA */
 	ADC_DMACmd(ADC1, ENABLE);
 
@@ -516,7 +525,7 @@ void GPIO_Configuration(void)
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure ADC inputs */
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_4 | GPIO_Pin_5;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
