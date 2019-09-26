@@ -83,12 +83,14 @@ int main()
 	prvSetupHardware();
 
 	/* Create the tasks */
+#ifdef ROBOTICS
 	xTaskCreate(prvReceiveActuatorsDataTask,	/* Pointer to the task entry function */
 				"Actuators_receive",			/* Name for the task */
 				configMINIMAL_STACK_SIZE,		/* The size of the stack */
 				NULL,							/* Pointer to parameters for the task */
 				receiveActuators_TASK_PRIORITY,	/* The priority for the task */
 				NULL);							/* Handle for the created task */
+#endif
 
 	xTaskCreate(prvTransmitSensorsDataTask,		/* Pointer to the task entry function */
 				"Sensors_Transmit",				/* Name for the task */
@@ -125,9 +127,19 @@ static void prvTransmitPWMTask(void *pvParameters)
 	{
 		if (actuatorsMsgStatus) {
 
-			uint16_t steering_period     = (steering_actuator*Timer3Period)/100;
-			uint16_t brake_period        = (brake_actuator*Timer3Period)/100;
-			uint16_t acceleration_period = (acceleration_actuator*Timer3Period)/100;
+			uint16_t steering_period = 0;
+			uint16_t brake_period = 0;
+			uint16_t acceleration_period = 0;
+
+#ifdef ROBOTICS
+			steering_period;     = (steering_actuator * Timer3Period)/100;
+			brake_period;        = (brake_actuator * Timer3Period)/100;
+			acceleration_period; = (acceleration_actuator * Timer3Period)/100;
+#else
+#ifdef DONKEY
+			steering_period      = ADC_values[3];
+			acceleration_period  = ADC_values[4];
+#endif
 			/* Set steering value */
 			if (TIM_GetCapture1(TIM3) != steering_period) {
 				TIM_SetCompare1(TIM3, steering_period);
