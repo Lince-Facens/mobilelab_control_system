@@ -125,39 +125,46 @@ static void prvTransmitPWMTask(void *pvParameters)
 
 	while(1)
 	{
-		if (actuatorsMsgStatus) {
+		uint16_t steering_period_l = 0;
+		uint16_t steering_period_r = 0;
+		uint16_t brake_period = 0;
+		uint16_t acceleration_period = 0;
 
-			uint16_t steering_period = 0;
-			uint16_t brake_period = 0;
-			uint16_t acceleration_period = 0;
+#ifdef DONKEY
+		steering_period_l      = (ADC_values[0] * Timer3Period) / 4095;
+		steering_period_r      = (ADC_values[1] * Timer3Period) / 4095;
+		acceleration_period  = ADC_values[4];
 
+#endif
 #ifdef ROBOTICS
-			steering_period;     = (steering_actuator * Timer3Period)/100;
+		if (actuatorsMsgStatus) {
+			steering_period_l;     = (steering_actuator * Timer3Period)/100;
 			brake_period;        = (brake_actuator * Timer3Period)/100;
 			acceleration_period; = (acceleration_actuator * Timer3Period)/100;
-#else
-#ifdef DONKEY
-			steering_period      = ADC_values[3];
-			acceleration_period  = ADC_values[4];
-#endif
-			/* Set steering value */
-			if (TIM_GetCapture1(TIM3) != steering_period) {
-				TIM_SetCompare1(TIM3, steering_period);
-			}
-			/* Set brake value */
-			if (TIM_GetCapture2(TIM3) != brake_period) {
-				TIM_SetCompare2(TIM3, brake_period);
-			}
-			/* Set acceleration value */
-			if (TIM_GetCapture3(TIM3) != acceleration_period) {
-				TIM_SetCompare3(TIM3, acceleration_period);
-			}
-			//	GPIO_InitTypeDef GPIO_InitStructure;n
-			GPIO_ResetBits(GPIOC, LED);
-			vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
-			GPIO_SetBits(GPIOC, LED);
-			vTaskDelayUntil(&xNextWakeTime, 200 / portTICK_PERIOD_MS);
 		}
+#endif
+
+		/* Set steering value */
+		if (TIM_GetCapture1(TIM3) != steering_period_l) {
+			TIM_SetCompare1(TIM3, steering_period_l);
+		}
+		if (TIM_GetCapture2(TIM3) != steering_period_r) {
+			TIM_SetCompare2(TIM3, steering_period_r);
+		}
+		/* Set brake value */
+		if (TIM_GetCapture3(TIM3) != brake_period) {
+			TIM_SetCompare3(TIM3, brake_period);
+		}
+		/* Set acceleration value */
+		if (TIM_GetCapture4(TIM3) != acceleration_period) {
+			TIM_SetCompare4(TIM3, acceleration_period);
+		}
+		//	GPIO_InitTypeDef GPIO_InitStructure;n
+		GPIO_ResetBits(GPIOC, LED);
+		vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
+		GPIO_SetBits(GPIOC, LED);
+		vTaskDelayUntil(&xNextWakeTime, 200 / portTICK_PERIOD_MS);
+
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
 }
@@ -314,9 +321,18 @@ uint8_t prvConstructActuatorsSensorsMessage(void)
 void prvConstructSensorsMessage(void)
 {
 	/* TODO: be sure that this is the actual order */
-	uint16_t steering_sensor     = ADC_values[0]; // Channel 0
-	uint16_t brake_sensor        = ADC_values[1]; // Channel 1
-	uint16_t acceleration_sensor = ADC_values[2]; // Channel 2
+	uint16_t steering_sensor     = 4095; // Channel 0
+	uint16_t brake_sensor        = ADC_values[2]; // Channel 2
+	uint16_t acceleration_sensor = ADC_values[3]; // Channel 3
+
+	if (ADC_values[0] > 0) {
+		steering_sensor = 4095 - ADC_values[0];
+	}
+	else if (ADC_values[1] > 0) {
+		steering_sensor = 4095 + ADC_values[1];
+	}
+
+	steering_sensor /= 2;
 
 	SensorsMessageTx[2] = '0' + (steering_sensor / 1000);
 	SensorsMessageTx[3] = '0' + (steering_sensor / 100) % 10;
@@ -372,6 +388,13 @@ void TIM_Configuration(void)
 
 	TIM_OC3Init(TIM3, &TIM_OCInitStructure);
 	TIM_OC3PreloadConfig(TIM3, TIM_OCPreload_Enable);
+
+	/* PWM1 Mode configuration: Channel4 */
+	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+	TIM_OCInitStructure.TIM_Pulse = 0;
+
+	TIM_OC4Init(TIM3, &TIM_OCInitStructure);
+	TIM_OC4PreloadConfig(TIM3, TIM_OCPreload_Enable);
 
 	TIM_ARRPreloadConfig(TIM3, ENABLE);
 
@@ -548,7 +571,7 @@ void GPIO_Configuration(void)
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure PWM outputs TIM3_CH3 */
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
