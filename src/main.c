@@ -130,15 +130,17 @@ int main()
 
 double diffSetPoint(double measure, double left, double right)
 {
-	if (left < 80 && right < 80) {
-		return 2048 - measure; // 2048 is the middle
+	if (left < 400 && right < 400) {
+		return 1800 - measure; // 2048 is the middle
 	}
-	else if (left > 80) {
-		return -left/2 + ((1000 - measure)/500 * 2048);
-	}
-	else if (right> 80) {
-		return right/2 - ((measure - 1500)/500 * 2048);
-	}
+	return 0;
+//	else if (right > 400) {
+//		double res = (right - ((1 - (measure - 1190)/643) * 3200));
+//		return (res < 0) ? 3200 : res;
+//	}
+//	else if (left > 400) {
+//		return -(left - ((measure - 1833)/667* 3200));
+//	}
 }
 
 static void prvCounterTask(void *pvParameters)
@@ -161,22 +163,23 @@ static void prvCounterTask(void *pvParameters)
 
 			// Measure the diff and estimate the output of steering.
 			double error = diffSetPoint(steering_feedback, steering_left, steering_right);
-			elapsed_time = last_time - xTaskGetTickCount();
+//			elapsed_time = xTaskGetTickCount() - last_time;
 
 			cumulative_error += error * elapsed_time;
-			rate_error = (error - last_error) / elapsed_time;
+			rate_error = (error - last_error); // / elapsed_time
 
-			output = Kp * error + Ki * cumulative_error + Kd * rate_error;
+//			output = Kp * error + Ki * cumulative_error + Kd * rate_error;
+			output = error;
 
 			last_error = error;
 
 			// Actuate with output from PID controller
-			if (output > 40) {
-				TIM_SetCompare1(TIM3, Timer3Period * (output)/2048.0);
+			if (output < -100) {
+				TIM_SetCompare1(TIM3, Timer3Period * (-output)/600.0);
 				TIM_SetCompare2(TIM3, 0);
 			}
-			else if (output < -40) {
-				TIM_SetCompare2(TIM3, Timer3Period * (-output)/2048.0);
+			else if (output > 100) {
+				TIM_SetCompare2(TIM3, Timer3Period * (output)/600.0);
 				TIM_SetCompare1(TIM3, 0);
 			}
 
@@ -204,7 +207,7 @@ static void prvCounterTask(void *pvParameters)
 
 		last_time = xTaskGetTickCount();
 
-//		vTaskDelay(portTICK_PERIOD_MS / 100);
+		vTaskDelay(portTICK_PERIOD_MS / 100);
 	}
 }
 //
