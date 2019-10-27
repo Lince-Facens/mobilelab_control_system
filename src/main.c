@@ -153,6 +153,8 @@ static void prvCounterTask(void *pvParameters)
 
 	while (1)
 	{
+		// Still alive pin
+		GPIO_SetBits(GPIOB, GPIO_Pin_0);
 
 		if (steering_right != -1) {
 			steering_feedback = ADC_values[0];
@@ -680,7 +682,7 @@ void GPIO_Configuration(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
