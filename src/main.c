@@ -153,13 +153,30 @@ static void prvCounterTask(void *pvParameters)
 	Kd = 5;
 	Kd = 1;
 
+	int n_window_elements = 5, inserted_n = 0, medium = 0, last_i = 0, actual = 0;
+	int window[n_window_elements];
+
+
 	while (1)
 	{
 		// Still alive pin
-		GPIO_SetBits(GPIOB, GPIO_Pin_0);
+		GPIO_SetBits(GPIOB, GPIO_Pin_14);
+
+		actual = ADC_values[0];
+
+		if (inserted_n == n_window_elements) {
+			medium -= window[last_i];
+			medium += actual;
+			window[last_i] = actual;
+			last_i = (last_i + 1) %  n_window_elements;
+		}
+		else {
+			medium += actual;
+			window[inserted_n++] = actual;
+		}
 
 		if (steering_right != -1) {
-			steering_feedback = ADC_values[0];
+			steering_feedback = medium / inserted_n;
 
 			// Measure the diff and estimate the output of steering.
 			double error = diffSetPoint(steering_feedback, steering_left, steering_right);
@@ -187,7 +204,6 @@ static void prvCounterTask(void *pvParameters)
 			GPIO_SetBits(GPIOB, GPIO_Pin_13);
 		}
 
-		steering_feedback = ADC_values[0];
 		steering_right    = ADC_values[1];
 		steering_left     = ADC_values[2];
 		acceleration      = ADC_values[3];
