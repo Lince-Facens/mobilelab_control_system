@@ -35,7 +35,7 @@
 /* Private define ------------------------------------------------------------*/
 #define ADC1_DR    ((uint32_t)0x4001244C)
 #ifdef DONKEY
-#define ARRAYSIZE 5
+#define ARRAYSIZE 4
 #else
 #define ARRAYSIZE 3
 #endif
@@ -56,6 +56,7 @@ uint16_t brake_actuator;
 uint16_t acceleration_actuator;
 uint16_t Timer3Period = (uint16_t) 665;
 __IO uint8_t actuatorsMsgStatus = (uint8_t) 0;
+uint64_t timer = 0;
 
 /* ----- Private method definitions ---------------------------------------- */
 static void prvSetupHardware(void);
@@ -64,6 +65,7 @@ static void prvSetupHardware(void);
 static void prvReceiveActuatorsDataTask(void *pvParameters);
 static void prvTransmitSensorsDataTask(void *pvParameters);
 static void prvTransmitPWMTask(void *pvParameters);
+static void prvCounterTask(void *pvParameters);
 void RCC_Configuration(void);
 void GPIO_Configuration(void);
 void NVIC_Configuration(void);
@@ -71,6 +73,7 @@ void DMA_Configuration(void);
 void ADC_Configuration(void);
 void USART_Configuration(void);
 void TIM_Configuration(void);
+void EXTI_Configuration(void);
 void prvConstructSensorsMessage(void);
 int prvIsNumber(char c);
 int prvCharToInt(char c);
@@ -99,8 +102,15 @@ int main()
 				transmitSensors_TASK_PRIORITY,	/* The priority for the task */
 				NULL);
 
-	xTaskCreate(prvTransmitPWMTask,				/* Pointer to the task entry function */
-				"Actuators_PWM",				/* Name for the task */
+//	xTaskCreate(prvTransmitPWMTask,				/* Pointer to the task entry function */
+//				"Actuators_PWM",				/* Name for the task */
+//				configMINIMAL_STACK_SIZE,		/* The size of the stack */
+//				NULL,							/* Pointer to parameters for the task */
+//				transmitPWM_TASK_PRIORITY,		/* The priority for the task */
+//				NULL);
+
+	xTaskCreate(prvCounterTask,				/* Pointer to the task entry function */
+				"Counter",				/* Name for the task */
 				configMINIMAL_STACK_SIZE,		/* The size of the stack */
 				NULL,							/* Pointer to parameters for the task */
 				transmitPWM_TASK_PRIORITY,		/* The priority for the task */
@@ -117,78 +127,176 @@ int main()
 	while (1);
 }
 
-static void prvTransmitPWMTask(void *pvParameters)
+static void prvCounterTask(void *pvParameters)
 {
-	GPIO_SetBits(GPIOC, LED);
-	TickType_t xNextWakeTime;
-	xNextWakeTime = xTaskGetTickCount();
-
-	while(1)
-	{
-		if (actuatorsMsgStatus) {
-
-			uint16_t steering_period = 0;
-			uint16_t brake_period = 0;
-			uint16_t acceleration_period = 0;
-
-#ifdef ROBOTICS
-			steering_period;     = (steering_actuator * Timer3Period)/100;
-			brake_period;        = (brake_actuator * Timer3Period)/100;
-			acceleration_period; = (acceleration_actuator * Timer3Period)/100;
-#else
-#ifdef DONKEY
-			steering_period      = ADC_values[3];
-			acceleration_period  = ADC_values[4];
-#endif
-			/* Set steering value */
-			if (TIM_GetCapture1(TIM3) != steering_period) {
-				TIM_SetCompare1(TIM3, steering_period);
-			}
-			/* Set brake value */
-			if (TIM_GetCapture2(TIM3) != brake_period) {
-				TIM_SetCompare2(TIM3, brake_period);
-			}
-			/* Set acceleration value */
-			if (TIM_GetCapture3(TIM3) != acceleration_period) {
-				TIM_SetCompare3(TIM3, acceleration_period);
-			}
-			//	GPIO_InitTypeDef GPIO_InitStructure;n
-			GPIO_ResetBits(GPIOC, LED);
-			vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
-			GPIO_SetBits(GPIOC, LED);
-			vTaskDelayUntil(&xNextWakeTime, 200 / portTICK_PERIOD_MS);
-		}
-		vTaskDelay(100 / portTICK_PERIOD_MS);
-	}
-}
-
-/*-----------------------------------------------------------*/
-static void prvReceiveActuatorsDataTask(void *pvParameters)
-{
-	int RxBufferCount;
+	GPIO_ResetBits(GPIOC, LED);
 	while (1)
 	{
-		/* I don't know why, but I need to do this twice.
-		 * This is not totally stable, need a quick fix
-		 * */
-		while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
-		while (USART_ReceiveData(USART1) != 's') ;
-		while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
-		while (USART_ReceiveData(USART1) != 's') ;
+		timer++;
 
-		for (RxBufferCount = 1; RxBufferCount < countof(ActuatorsMessageRx); ++RxBufferCount) {
-			while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
-			ActuatorsMessageRx[RxBufferCount] = USART_ReceiveData(USART1);
+		// The following order was assured in the last test.
+		double steering_right = Timer3Period * (ADC_values[1] / 4095.0);
+		double steering_left  = Timer3Period * (ADC_values[2] / 4095.0);
+		double acceleration   = Timer3Period * (ADC_values[3] / 4095.0);
 
+
+//		if (TIM_GetCapture1(TIM3) != steering_right && steering_right > 100) {
+		if (steering_right > 80) {
+			TIM_SetCompare1(TIM3, steering_right);
+			if (steering_right > 0) {
+				TIM_SetCompare2(TIM3, 0);
+			}
+			GPIO_SetBits(GPIOB, GPIO_Pin_12);
+			GPIO_SetBits(GPIOB, GPIO_Pin_13);
 		}
 
-		if (prvVerifyActuatorsMessage()) {
-			actuatorsMsgStatus = prvConstructActuatorsSensorsMessage();
+//		else if (TIM_GetCapture2(TIM3) != steering_left && steering_left > 100) {
+		else if (steering_left > 80) {
+			TIM_SetCompare2(TIM3, steering_left);
+			if (steering_left > 0) {
+				TIM_SetCompare1(TIM3, 0);
+			}
+			GPIO_SetBits(GPIOB, GPIO_Pin_12);
+			GPIO_SetBits(GPIOB, GPIO_Pin_13);
 		}
 
-		vTaskDelay(50 / portTICK_PERIOD_MS);
+		else {
+			GPIO_ResetBits(GPIOB, GPIO_Pin_12);
+			GPIO_ResetBits(GPIOB, GPIO_Pin_13);
+		}
+
+		if (TIM_GetCapture3(TIM3) != acceleration) {
+			TIM_SetCompare3(TIM3, acceleration);
+		}
+
+//		GPIO_SetBits(GPIOC, LED);
+//		if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0)) {
+//			GPIO_SetBits(GPIOA, GPIO_Pin_6);
+//			GPIO_ResetBits(GPIOA, GPIO_Pin_7);
+//		}
+//		else {
+//			GPIO_ResetBits(GPIOA, GPIO_Pin_6);
+//		}
+//
+//		if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_1)) {
+//			GPIO_SetBits(GPIOA, GPIO_Pin_7);
+//			GPIO_ResetBits(GPIOA, GPIO_Pin_6);
+//		}
+//		else {
+//			GPIO_ResetBits(GPIOA, GPIO_Pin_7);
+//		}
+//
+//		if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_2)) {
+//			GPIO_SetBits(GPIOB, GPIO_Pin_0);
+//		}
+//		else {
+//			GPIO_ResetBits(GPIOB, GPIO_Pin_0);
+//		}
+
+//		vTaskDelay(portTICK_PERIOD_MS / 100);
 	}
 }
+//
+//static void prvTransmitPWMTask(void *pvParameters)
+//{
+//	GPIO_SetBits(GPIOC, LED);
+//	TickType_t xNextWakeTime;
+//	xNextWakeTime = xTaskGetTickCount();
+//
+//	int test1 = 0, test2 = 0;
+//	int last;
+//	double total = 0;
+//
+//	while(1)
+//	{
+////		if (ADC_values[0] > 2000) {
+////			test1++;
+////
+////			if (last == 0) {
+////				total =  (test1) / (double)(test1 + test2);
+////				test1 = 1;
+////				test2 = 0;
+////			}
+////
+////			last = 1;
+////		}
+////		else {
+////			test2++;
+////
+////			last = 0;
+////		}
+//
+//		uint16_t steering_period_l = 0;
+//		uint16_t steering_period_r = 0;
+//		uint16_t brake_period = 0;
+//		uint16_t acceleration_period = 0;
+//
+//#ifdef DONKEY
+//		steering_period_l      = (ADC_values[0] * Timer3Period) / 4095.0;
+//		steering_period_r      = (ADC_values[1] * Timer3Period) / 4095.0;
+//		acceleration_period    = (ADC_values[3] * Timer3Period) / 4095.0;
+//
+//#endif
+//#ifdef ROBOTICS
+//		if (actuatorsMsgStatus) {
+//			steering_period_l;     = (steering_actuator * Timer3Period)/100;
+//			brake_period;        = (brake_actuator * Timer3Period)/100;
+//			acceleration_period; = (acceleration_actuator * Timer3Period)/100;
+//		}
+//#endif
+//
+//		/* Set steering value */
+//		if (TIM_GetCapture1(TIM3) != steering_period_l) {
+//			TIM_SetCompare1(TIM3, steering_period_l);
+//		}
+//		if (TIM_GetCapture2(TIM3) != steering_period_r) {
+//			TIM_SetCompare2(TIM3, steering_period_r);
+//		}
+//		/* Set brake value */
+//		if (TIM_GetCapture3(TIM3) != brake_period) {
+//			TIM_SetCompare3(TIM3, brake_period);
+//		}
+//		/* Set acceleration value */
+//		if (TIM_GetCapture4(TIM3) != acceleration_period) {
+//			TIM_SetCompare4(TIM3, acceleration_period);
+//		}
+//		//	GPIO_InitTypeDef GPIO_InitStructure;n
+//		GPIO_ResetBits(GPIOC, LED);
+//		vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
+//		GPIO_SetBits(GPIOC, LED);
+//		vTaskDelayUntil(&xNextWakeTime, 200 / portTICK_PERIOD_MS);
+//
+//		vTaskDelay(portTICK_PERIOD_MS);
+//	}
+//}
+//
+///*-----------------------------------------------------------*/
+//static void prvReceiveActuatorsDataTask(void *pvParameters)
+//{
+//	int RxBufferCount;
+//	while (1)
+//	{
+//		/* I don't know why, but I need to do this twice.
+//		 * This is not totally stable, need a quick fix
+//		 * */
+//		while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+//		while (USART_ReceiveData(USART1) != 's') ;
+//		while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+//		while (USART_ReceiveData(USART1) != 's') ;
+//
+//		for (RxBufferCount = 1; RxBufferCount < countof(ActuatorsMessageRx); ++RxBufferCount) {
+//			while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+//			ActuatorsMessageRx[RxBufferCount] = USART_ReceiveData(USART1);
+//
+//		}
+//
+//		if (prvVerifyActuatorsMessage()) {
+//			actuatorsMsgStatus = prvConstructActuatorsSensorsMessage();
+//		}
+//
+//		vTaskDelay(50 / portTICK_PERIOD_MS);
+//	}
+//}
 
 static void prvTransmitSensorsDataTask(void *pvParameters)
 {
@@ -203,7 +311,7 @@ static void prvTransmitSensorsDataTask(void *pvParameters)
 			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
 		}
 
-		vTaskDelay(50 / portTICK_PERIOD_MS);
+		vTaskDelay(1000 * portTICK_PERIOD_MS);
 	}
 
 }
@@ -314,9 +422,18 @@ uint8_t prvConstructActuatorsSensorsMessage(void)
 void prvConstructSensorsMessage(void)
 {
 	/* TODO: be sure that this is the actual order */
-	uint16_t steering_sensor     = ADC_values[0]; // Channel 0
-	uint16_t brake_sensor        = ADC_values[1]; // Channel 1
-	uint16_t acceleration_sensor = ADC_values[2]; // Channel 2
+	uint16_t steering_sensor     = 4095; // Channel 0
+	uint16_t brake_sensor        = ADC_values[0]; // Channel 2
+	uint16_t acceleration_sensor = ADC_values[2]; // Channel 3
+
+	if (ADC_values[3] > 300) {
+		steering_sensor = 4095 - ADC_values[3];
+	}
+	else if (ADC_values[1] > 300) {
+		steering_sensor = 4095 + ADC_values[1];
+	}
+
+	steering_sensor /= 2;
 
 	SensorsMessageTx[2] = '0' + (steering_sensor / 1000);
 	SensorsMessageTx[3] = '0' + (steering_sensor / 100) % 10;
@@ -340,7 +457,8 @@ void TIM_Configuration(void)
 	TIM_OCInitTypeDef  TIM_OCInitStructure;
 
 	/* Compute the prescaler value */
-	int PrescalerValue = (uint16_t) (SystemCoreClock / 24000000) - 1;
+//	int PrescalerValue = (uint16_t) (SystemCoreClock / 24000000) - 1;
+	int PrescalerValue = (uint16_t) (SystemCoreClock / (50000)) - 1;
 	/* Time base configuration */
 	TIM_TimeBaseStructure.TIM_Period = Timer3Period ;
 	TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
@@ -372,6 +490,13 @@ void TIM_Configuration(void)
 
 	TIM_OC3Init(TIM3, &TIM_OCInitStructure);
 	TIM_OC3PreloadConfig(TIM3, TIM_OCPreload_Enable);
+
+	/* PWM1 Mode configuration: Channel4 */
+	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+	TIM_OCInitStructure.TIM_Pulse = 0;
+
+	TIM_OC4Init(TIM3, &TIM_OCInitStructure);
+	TIM_OC4PreloadConfig(TIM3, TIM_OCPreload_Enable);
 
 	TIM_ARRPreloadConfig(TIM3, ENABLE);
 
@@ -409,23 +534,14 @@ void ADC_Configuration(void)
 	ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
 	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
 	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-
-#ifdef DONKEY
-	ADC_InitStructure.ADC_NbrOfChannel = 5;
-#else
-	ADC_InitStructure.ADC_NbrOfChannel = 3;
-#endif
+	ADC_InitStructure.ADC_NbrOfChannel = ARRAYSIZE;
 
 	ADC_Init(ADC1, &ADC_InitStructure);
 	/* ADC1 regular channels configuration */
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 1, ADC_SampleTime_28Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 2, ADC_SampleTime_28Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_2, 3, ADC_SampleTime_28Cycles5);
-
-#ifdef DONKEY
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 4, ADC_SampleTime_28Cycles5);
-	ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 5, ADC_SampleTime_28Cycles5);
-#endif
 
 	/* Enable ADC1 DMA */
 	ADC_DMACmd(ADC1, ENABLE);
@@ -537,19 +653,26 @@ void GPIO_Configuration(void)
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure ADC inputs */
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_4 | GPIO_Pin_5;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
-	GPIO_Init(GPIOA, &GPIO_InitStructure);
+//	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
+//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+//	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure PWM outputs */
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure PWM outputs TIM3_CH3 */
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 }
@@ -562,12 +685,55 @@ void GPIO_Configuration(void)
 void NVIC_Configuration(void)
 {
 	NVIC_InitTypeDef NVIC_InitStructure;
+
 	//Enable DMA1 channel IRQ Channel */
 	NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel1_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
+
+//	/* Enable and set EXTI0 Interrupt to the lowest priority */
+//	NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+//	NVIC_Init(&NVIC_InitStructure);
+//
+//	/* Enable and set EXTI0 Interrupt to the lowest priority */
+//	NVIC_InitStructure.NVIC_IRQChannel = EXTI1_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+//	NVIC_Init(&NVIC_InitStructure);
+
+//	/* Enable and set EXTI0 Interrupt to the lowest priority */
+//	NVIC_InitStructure.NVIC_IRQChannel = EXTI2_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+//	NVIC_Init(&NVIC_InitStructure);
+//
+//	/* Enable and set EXTI0 Interrupt to the lowest priority */
+//	NVIC_InitStructure.NVIC_IRQChannel = EXTI3_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+//	NVIC_Init(&NVIC_InitStructure);
+//
+//	/* Enable and set EXTI0 Interrupt to the lowest priority */
+//	NVIC_InitStructure.NVIC_IRQChannel = EXTI4_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+//	NVIC_Init(&NVIC_InitStructure);
+//
+//	/* Enable and set EXTI0 Interrupt to the lowest priority */
+//	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
+//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
+//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+//	NVIC_Init(&NVIC_InitStructure);
 }
 
 /*-----------------------------------------------------------*/
@@ -580,21 +746,25 @@ static void prvSetupHardware(void)
 	/* System clocks configuration ---------------------------------------------*/
 	RCC_Configuration();
 
+	/* USART configuration -----------------------------------------------------*/
 	USART_Configuration();
 
 	/* GPIO configuration ------------------------------------------------------*/
 	GPIO_Configuration();
 
-	/* DMA configuration ------------------------------------------------------*/
+	/* DMA configuration -------------------------------------------------------*/
 	DMA_Configuration();
+
+	/* EXTI configuration ----------------------------------------------------- */
+//	EXTI_Configuration();
 
 	/* NVIC configuration ------------------------------------------------------*/
 	NVIC_Configuration();
 
-	/* ADC configuration ------------------------------------------------------*/
+	/* ADC configuration -------------------------------------------------------*/
 	ADC_Configuration();
 
-	/* TIM configuration */
+	/* TIM configuration -------------------------------------------------------*/
 	TIM_Configuration();
 }
 /*-----------------------------------------------------------*/
@@ -638,6 +808,56 @@ void vApplicationIdleHook(void)
 		the value of configTOTAL_HEAP_SIZE in FreeRTOSConfig.h can be
 		reduced accordingly. */
 	}
+}
+
+void EXTI_Configuration(void)
+{
+	EXTI_InitTypeDef EXTI_InitStructure;
+
+	/* Connect EXTI0 Line to PA.00 pin */
+	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource0);
+
+	/* Configure EXTI0 line */
+	EXTI_InitStructure.EXTI_Line = EXTI_Line0;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+
+	/* Configure EXTI1 line */
+	EXTI_InitStructure.EXTI_Line = EXTI_Line1;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+
+//	/* Configure EXTI0 line */
+//	EXTI_InitStructure.EXTI_Line = EXTI_Line2;
+//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+//	EXTI_Init(&EXTI_InitStructure);
+//
+//	/* Configure EXTI1 line */
+//	EXTI_InitStructure.EXTI_Line = EXTI_Line3;
+//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+//	EXTI_Init(&EXTI_InitStructure);
+//
+//	/* Configure EXTI1 line */
+//	EXTI_InitStructure.EXTI_Line = EXTI_Line4;
+//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+//	EXTI_Init(&EXTI_InitStructure);
+//
+//	/* Configure EXTI1 line */
+//	EXTI_InitStructure.EXTI_Line = EXTI_Line5;
+//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+//	EXTI_Init(&EXTI_InitStructure);
 }
 
 #ifdef DEBUG
