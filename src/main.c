@@ -145,7 +145,6 @@ double diffSetPoint(double measure, double left, double right)
 
 static void prvCounterTask(void *pvParameters)
 {
-	GPIO_ResetBits(GPIOC, LED);
 	int last_time = -1, elapsed_time = -1;
 	double steering_right, steering_left, acceleration, steering_feedback, cumulative_error = 0, last_error, rate_error, output;
 	steering_right = steering_left = acceleration = steering_feedback = last_error = -1;
@@ -159,6 +158,7 @@ static void prvCounterTask(void *pvParameters)
 
 	while (1)
 	{
+		GPIO_ResetBits(GPIOC, LED);
 		// Still alive pin
 		GPIO_SetBits(GPIOB, GPIO_Pin_14);
 
@@ -190,15 +190,28 @@ static void prvCounterTask(void *pvParameters)
 
 			last_error = error;
 
+			// TESTE
+
+			TIM_SetCompare3(TIM3, Timer3Period * (steering_feedback)/4095.0);
+//			TIM_SetCompare2(TIM3, Timer3Period * (steering_feedback)/4095.0);
+
+			timer++;
+
+			if (timer % 18196 == 0) {
+				volatile int a = 1;
+			}
+
+			// TESTE
+
 			// Actuate with output from PID controller
-			if (output < -100) {
-				TIM_SetCompare1(TIM3, Timer3Period * (-output)/600.0);
-				TIM_SetCompare2(TIM3, 0);
-			}
-			else if (output > 100) {
-				TIM_SetCompare2(TIM3, Timer3Period * (output)/600.0);
-				TIM_SetCompare1(TIM3, 0);
-			}
+//			if (output < -100) {
+//				TIM_SetCompare1(TIM3, Timer3Period * (-output)/600.0);
+//				TIM_SetCompare2(TIM3, 0);
+//			}
+//			else if (output > 100) {
+//				TIM_SetCompare2(TIM3, Timer3Period * (output)/600.0);
+//				TIM_SetCompare1(TIM3, 0);
+//			}
 
 			GPIO_SetBits(GPIOB, GPIO_Pin_12);
 			GPIO_SetBits(GPIOB, GPIO_Pin_13);
@@ -217,13 +230,16 @@ static void prvCounterTask(void *pvParameters)
 //			GPIO_ResetBits(GPIOB, GPIO_Pin_13);
 //		}
 
-		if (TIM_GetCapture3(TIM3) != acceleration) {
-			TIM_SetCompare3(TIM3, acceleration);
-		}
+		// DESCOMENTAR PARA A ACC FUNCIONAR
+//		if (TIM_GetCapture3(TIM3) != acceleration) {
+//			TIM_SetCompare3(TIM3, acceleration);
+//		}
 
 		last_time = xTaskGetTickCount();
 
-		vTaskDelay(portTICK_PERIOD_MS / 100);
+//		vTaskDelay(portTICK_PERIOD_MS / 100);
+
+		GPIO_SetBits(GPIOC, LED);
 	}
 }
 //

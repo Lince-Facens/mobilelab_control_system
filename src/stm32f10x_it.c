@@ -75,6 +75,7 @@ void NMI_Handler(void)
   */
 void DebugMon_Handler(void)
 {
+	int a = timer;
 }
 
 
