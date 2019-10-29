@@ -57,6 +57,8 @@ uint16_t acceleration_actuator;
 uint16_t Timer3Period = (uint16_t) 665;
 __IO uint8_t actuatorsMsgStatus = (uint8_t) 0;
 uint64_t timer = 0;
+double Kp, Kd, Ki;
+uint8_t radio_status;
 
 /* ----- Private method definitions ---------------------------------------- */
 static void prvSetupHardware(void);
@@ -127,73 +129,120 @@ int main()
 	while (1);
 }
 
+double diffSetPoint(double measure, double left, double right)
+{
+	if (left < 400 && right < 400) {
+
+//		if (measure > 1894) {
+//			return 1700 - measure;
+//		}
+//		else {
+//			return 2065 - measure; // 2048 is the middle
+//		}
+//		return 2065 - measure;
+		return 1894 - measure;
+	}
+	return 0;
+//	else if (right > 400) {
+//		double res = (right - ((1 - (measure - 1190)/643) * 3200));
+//		return (res < 0) ? 3200 : res;
+//	}
+//	else if (left > 400) {
+//		return -(left - ((measure - 1833)/667* 3200));
+//	}
+}
+
 static void prvCounterTask(void *pvParameters)
 {
 	GPIO_ResetBits(GPIOC, LED);
+	int last_time = -1, elapsed_time = -1;
+	double steering_right, steering_left, acceleration, steering_feedback, cumulative_error = 0, last_error, rate_error, output;
+	steering_right = steering_left = acceleration = steering_feedback = last_error = -1;
+	Kp = 6;
+	Kd = 5;
+	Kd = 1;
+
 	while (1)
 	{
-		timer++;
+		radio_status = GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_15);
+		// Still alive pin
+		GPIO_SetBits(GPIOB, GPIO_Pin_14);
 
-		// The following order was assured in the last test.
-		double steering_right = Timer3Period * (ADC_values[1] / 4095.0);
-		double steering_left  = Timer3Period * (ADC_values[2] / 4095.0);
-		double acceleration   = Timer3Period * (ADC_values[3] / 4095.0);
+		if (radio_status) {
 
+			if (steering_right != -1) {
+	//			timer++;
+				steering_feedback = ADC_values[0];
 
-//		if (TIM_GetCapture1(TIM3) != steering_right && steering_right > 100) {
-		if (steering_right > 80) {
-			TIM_SetCompare1(TIM3, steering_right);
-			if (steering_right > 0) {
-				TIM_SetCompare2(TIM3, 0);
+				// Measure the diff and estimate the output of steering.
+				double error = diffSetPoint(steering_feedback, steering_left, steering_right);
+	//			elapsed_time = xTaskGetTickCount() - last_time;
+				elapsed_time = 10;
+
+				cumulative_error += error * elapsed_time;
+				rate_error = (error - last_error) / elapsed_time; // / elapsed_time
+
+				output = Kp * error + Ki * cumulative_error + Kd * rate_error;
+	//			output = error;
+
+				last_error = error;
+
+				if (error != 0) {
+				// Actuate with output from PID controller
+					if (output < -100) {
+			//				TIM_SetCompare1(TIM3, Timer3Period * (-output)/4000.0);
+						TIM_SetCompare1(TIM3, Timer3Period * (-output)/3500.0);
+						TIM_SetCompare2(TIM3, 0);
+					}
+					else if (output > 100) {
+						TIM_SetCompare2(TIM3, Timer3Period * (output)/3500.0);
+						TIM_SetCompare1(TIM3, 0);
+					}
+				}
+				else {
+					if (steering_right > 400) {
+						TIM_SetCompare1(TIM3, Timer3Period * (steering_right)/4095.0);
+						TIM_SetCompare2(TIM3, 0);
+					}
+					else if (steering_left > 400) {
+						TIM_SetCompare2(TIM3, Timer3Period * (steering_left)/4095.0);
+						TIM_SetCompare1(TIM3, 0);
+					}
+				}
+
+				GPIO_SetBits(GPIOB, GPIO_Pin_12);
+				GPIO_SetBits(GPIOB, GPIO_Pin_13);
 			}
-			GPIO_SetBits(GPIOB, GPIO_Pin_12);
-			GPIO_SetBits(GPIOB, GPIO_Pin_13);
-		}
 
-//		else if (TIM_GetCapture2(TIM3) != steering_left && steering_left > 100) {
-		else if (steering_left > 80) {
-			TIM_SetCompare2(TIM3, steering_left);
-			if (steering_left > 0) {
-				TIM_SetCompare1(TIM3, 0);
+			steering_feedback = ADC_values[0];
+			steering_right    = ADC_values[1];
+			steering_left     = ADC_values[2];
+			acceleration      = ADC_values[3];
+
+			// The following order was assured in the last test.
+
+
+			// Old code to stop motor.
+	//		else {
+	//			GPIO_ResetBits(GPIOB, GPIO_Pin_12);
+	//			GPIO_ResetBits(GPIOB, GPIO_Pin_13);
+	//		}
+
+			if (TIM_GetCapture3(TIM3) != acceleration) {
+				if (acceleration <= 400) acceleration = 0;
+				TIM_SetCompare3(TIM3, Timer3Period * (acceleration / 4095.0));
 			}
-			GPIO_SetBits(GPIOB, GPIO_Pin_12);
-			GPIO_SetBits(GPIOB, GPIO_Pin_13);
-		}
 
+			last_time = timer;
+
+		}
 		else {
 			GPIO_ResetBits(GPIOB, GPIO_Pin_12);
 			GPIO_ResetBits(GPIOB, GPIO_Pin_13);
+			TIM_SetCompare3(TIM3, 0);
 		}
 
-		if (TIM_GetCapture3(TIM3) != acceleration) {
-			TIM_SetCompare3(TIM3, acceleration);
-		}
-
-//		GPIO_SetBits(GPIOC, LED);
-//		if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0)) {
-//			GPIO_SetBits(GPIOA, GPIO_Pin_6);
-//			GPIO_ResetBits(GPIOA, GPIO_Pin_7);
-//		}
-//		else {
-//			GPIO_ResetBits(GPIOA, GPIO_Pin_6);
-//		}
-//
-//		if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_1)) {
-//			GPIO_SetBits(GPIOA, GPIO_Pin_7);
-//			GPIO_ResetBits(GPIOA, GPIO_Pin_6);
-//		}
-//		else {
-//			GPIO_ResetBits(GPIOA, GPIO_Pin_7);
-//		}
-//
-//		if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_2)) {
-//			GPIO_SetBits(GPIOB, GPIO_Pin_0);
-//		}
-//		else {
-//			GPIO_ResetBits(GPIOB, GPIO_Pin_0);
-//		}
-
-//		vTaskDelay(portTICK_PERIOD_MS / 100);
+		vTaskDelay(portTICK_PERIOD_MS / 100);
 	}
 }
 //
@@ -304,6 +353,7 @@ static void prvTransmitSensorsDataTask(void *pvParameters)
 
 	while (1)
 	{
+		timer++;
 		prvConstructSensorsMessage();
 
 		for (i = 0; i < countof(SensorsMessageTx); ++i) {
@@ -671,9 +721,13 @@ void GPIO_Configuration(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 }
 
