@@ -49,7 +49,7 @@ DMA_InitTypeDef DMA_InitStructure;
 uint32_t status;
 __IO uint16_t ADC_values[ARRAYSIZE];
 uint8_t RxBuffer[RxBufferSize];
-uint8_t SensorsMessageTx[] = "s:0000b:0000a:0000\n";
+uint8_t SensorsMessageTx[] = "s0000b0000a0000\n";
 uint8_t ActuatorsMessageRx[] = "s:000b:000a:000";
 uint16_t steering_actuator;
 uint16_t brake_actuator;
@@ -492,15 +492,15 @@ void prvConstructSensorsMessage(void)
 	SensorsMessageTx[4] = '0' + (steering_sensor / 10) % 10;
 	SensorsMessageTx[5] = '0' + steering_sensor % 10;
 
-	SensorsMessageTx[8] = '0' + brake_sensor / 1000;
-	SensorsMessageTx[9] = '0' + (brake_sensor / 100) % 10;
-	SensorsMessageTx[10] = '0' + (brake_sensor / 10) % 10;
-	SensorsMessageTx[11] = '0' + brake_sensor % 10;
+	SensorsMessageTx[7] = '0' + brake_sensor / 1000;
+	SensorsMessageTx[8] = '0' + (brake_sensor / 100) % 10;
+	SensorsMessageTx[9] = '0' + (brake_sensor / 10) % 10;
+	SensorsMessageTx[10] = '0' + brake_sensor % 10;
 
-	SensorsMessageTx[14] = '0' + acceleration_sensor / 1000;
-	SensorsMessageTx[15] = '0' + (acceleration_sensor / 100) % 10;
-	SensorsMessageTx[16] = '0' + (acceleration_sensor / 10) % 10;
-	SensorsMessageTx[17] = '0' + acceleration_sensor % 10;
+	SensorsMessageTx[12] = '0' + acceleration_sensor / 1000;
+	SensorsMessageTx[13] = '0' + (acceleration_sensor / 100) % 10;
+	SensorsMessageTx[14] = '0' + (acceleration_sensor / 10) % 10;
+	SensorsMessageTx[15] = '0' + acceleration_sensor % 10;
 }
 
 void TIM_Configuration(void)
