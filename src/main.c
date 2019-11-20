@@ -132,23 +132,21 @@ int main()
 double diffSetPoint(double measure, double left, double right)
 {
 	if (left < 400 && right < 400) {
-
-//		if (measure > 1894) {
-//			return 1700 - measure;
-//		}
-//		else {
-//			return 2065 - measure; // 2048 is the middle
-//		}
-//		return 2065 - measure;
 		return 1894 - measure;
 	}
 	return 0;
 //	else if (right > 400) {
-//		double res = (right - ((1 - (measure - 1190)/643) * 3200));
-//		return (res < 0) ? 3200 : res;
+////		double res = (right - ((1 - (measure - 1190)/643) * 3200));
+////		double res = (right/4095.0)*(3846-1894);
+////		double res = right - (measure + 2048);
+////		double res = right/2 - measure;
+//		double res = right/2 - measure - 2048;
+//		return res;
 //	}
 //	else if (left > 400) {
-//		return -(left - ((measure - 1833)/667* 3200));
+////		return left/2 - measure - 2048;
+//		return left/2 - measure;
+////		return -(left - ((measure - 1833)/667* 3200));
 //	}
 }
 
@@ -242,7 +240,7 @@ static void prvCounterTask(void *pvParameters)
 			TIM_SetCompare3(TIM3, 0);
 		}
 
-		vTaskDelay(portTICK_PERIOD_MS / 100);
+//		vTaskDelay(portTICK_PERIOD_MS / 100);
 	}
 }
 //
@@ -361,7 +359,7 @@ static void prvTransmitSensorsDataTask(void *pvParameters)
 			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
 		}
 
-		vTaskDelay(1000 * portTICK_PERIOD_MS);
+		vTaskDelay(50 * portTICK_PERIOD_MS);
 	}
 
 }
@@ -474,13 +472,17 @@ void prvConstructSensorsMessage(void)
 	/* TODO: be sure that this is the actual order */
 	uint16_t steering_sensor     = 4095; // Channel 0
 	uint16_t brake_sensor        = ADC_values[0]; // Channel 2
-	uint16_t acceleration_sensor = ADC_values[2]; // Channel 3
+	uint16_t acceleration_sensor = ADC_values[3]; // Channel 3
 
-	if (ADC_values[3] > 300) {
-		steering_sensor = 4095 - ADC_values[3];
+	if (ADC_values[2] > 400) {
+		steering_sensor = 4095 - ADC_values[2];
 	}
-	else if (ADC_values[1] > 300) {
+	else if (ADC_values[1] > 400) {
 		steering_sensor = 4095 + ADC_values[1];
+	}
+
+	if (acceleration_sensor <= 400) {
+		acceleration_sensor = 0;
 	}
 
 	steering_sensor /= 2;
