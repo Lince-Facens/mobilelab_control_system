@@ -21,6 +21,14 @@
 #define DONKEY
 // #define ROBOTICS
 
+#define MAX_STEERING 4095
+#define STEERING_THRESHOLD 0.1
+#define MAX_ACCELERATION 4095
+#define ACCELERATION_THRESHOLD 0.1
+
+#define STEERING_THRESHOLD_VALUE (MAX_STEERING * STEERING_THRESHOLD)
+#define ACCELERATION_THRESHOLD_VALUE (MAX_ACCELERATION * ACCELERATION_THRESHOLD)
+
 
 /* Priorities at which the tasks are created. */
 #define receiveActuators_TASK_PRIORITY				(tskIDLE_PRIORITY + 2)
@@ -162,11 +170,11 @@ static void prvCounterTask(void *pvParameters)
 
 	while (1)
 	{
-		radio_status = GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_15);
+		//radio_status = GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_15);
 		// Still alive pin
 		GPIO_SetBits(GPIOB, GPIO_Pin_14);
 
-		if (radio_status) {
+		//if (radio_status) {
 
 			if (steering_right != -1) {
 	//			timer++;
@@ -185,7 +193,7 @@ static void prvCounterTask(void *pvParameters)
 
 				last_error = error;
 
-				if (error != 0) {
+				/*if (error != 0) {
 				// Actuate with output from PID controller
 					if (output < -100) {
 			//				TIM_SetCompare1(TIM3, Timer3Period * (-output)/4000.0);
@@ -196,16 +204,20 @@ static void prvCounterTask(void *pvParameters)
 						TIM_SetCompare2(TIM3, Timer3Period * (output)/3500.0);
 						TIM_SetCompare1(TIM3, 0);
 					}
-				}
-				else {
-					if (steering_right > 400) {
-						TIM_SetCompare1(TIM3, Timer3Period * (steering_right)/4095.0);
+				} else */{
+					// Checks whether the steering is above the threshold
+
+					if (steering_right > STEERING_THRESHOLD_VALUE) {
+						TIM_SetCompare1(TIM3, (Timer3Period * steering_right) / MAX_STEERING);
+						TIM_SetCompare2(TIM3, 0);
+					} else if (steering_left > STEERING_THRESHOLD_VALUE) {
+						TIM_SetCompare1(TIM3, 0);
+						TIM_SetCompare2(TIM3, (Timer3Period * steering_left) / MAX_STEERING);
+					} else {
+						TIM_SetCompare1(TIM3, 0);
 						TIM_SetCompare2(TIM3, 0);
 					}
-					else if (steering_left > 400) {
-						TIM_SetCompare2(TIM3, Timer3Period * (steering_left)/4095.0);
-						TIM_SetCompare1(TIM3, 0);
-					}
+
 				}
 
 				GPIO_SetBits(GPIOB, GPIO_Pin_12);
@@ -227,18 +239,21 @@ static void prvCounterTask(void *pvParameters)
 	//		}
 
 			if (TIM_GetCapture3(TIM3) != acceleration) {
-				if (acceleration <= 400) acceleration = 0;
-				TIM_SetCompare3(TIM3, Timer3Period * (acceleration / 4095.0));
+				if (acceleration > ACCELERATION_THRESHOLD_VALUE) {
+					TIM_SetCompare3(TIM3, Timer3Period * (acceleration / MAX_ACCELERATION));
+				} else {
+					TIM_SetCompare3(TIM3, 0);
+				}
 			}
 
 			last_time = timer;
 
-		}
+		/*}
 		else {
 			GPIO_ResetBits(GPIOB, GPIO_Pin_12);
 			GPIO_ResetBits(GPIOB, GPIO_Pin_13);
 			TIM_SetCompare3(TIM3, 0);
-		}
+		}*/
 
 //		vTaskDelay(portTICK_PERIOD_MS / 100);
 	}
