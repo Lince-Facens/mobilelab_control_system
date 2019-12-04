@@ -26,8 +26,6 @@
 #include "task.h"
 #include "stm32f10x_it.h"
 
-extern int status;
-
 // left steering
 uint64_t pwm0Start = 0, pwm0Stop = 0, pwm0 = 0;
 // right steering
@@ -76,18 +74,6 @@ void NMI_Handler(void)
 void DebugMon_Handler(void)
 {
 	int a = timer;
-}
-
-
-void DMA1_Channel1_IRQHandler(void)
-{
-	//Test on DMA1 Channel1 Transfer Complete interrupt
-	if (DMA_GetITStatus(DMA1_IT_TC1))
-	{
-		status = 1;
-		//Clear DMA1 interrupt pending bits
-		DMA_ClearITPendingBit(DMA1_IT_GL1);
-	}
 }
 
 

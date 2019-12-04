@@ -78,7 +78,6 @@ static void prvTransmitPWMTask(void *pvParameters);
 static void prvCounterTask(void *pvParameters);
 void RCC_Configuration(void);
 void GPIO_Configuration(void);
-void NVIC_Configuration(void);
 void DMA_Configuration(void);
 void ADC_Configuration(void);
 void USART_Configuration(void);
@@ -616,14 +615,10 @@ void ADC_Configuration(void)
 	/* Start ADC1 calibration */
 	ADC_StartCalibration(ADC1);
 	/* Check the end of ADC1 calibration */
-	while (ADC_GetCalibrationStatus(ADC1))
-		;
+	while (ADC_GetCalibrationStatus(ADC1));
 
 	//Start ADC1 Software Conversion
 	ADC_SoftwareStartConvCmd(ADC1, ENABLE);
-	//wait for DMA complete
-	while (!status) {};
-	ADC_SoftwareStartConvCmd(ADC1, DISABLE);
 }
 
 /**
@@ -648,7 +643,6 @@ void DMA_Configuration(void)
 	DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
 	DMA_Init(DMA1_Channel1, &DMA_InitStructure);
 	/* Enable DMA1 channel1 */
-	DMA_ITConfig(DMA1_Channel1, DMA_IT_TC, ENABLE);
 	DMA_Cmd(DMA1_Channel1, ENABLE);
 
 	//Enable DMA1 Channel transfer
@@ -740,65 +734,6 @@ void GPIO_Configuration(void)
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 }
 
-/**
- * @brief  Configures Vector Table base location.
- * @param  None
- * @retval None
- */
-void NVIC_Configuration(void)
-{
-	NVIC_InitTypeDef NVIC_InitStructure;
-
-	//Enable DMA1 channel IRQ Channel */
-	NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel1_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_Init(&NVIC_InitStructure);
-
-//	/* Enable and set EXTI0 Interrupt to the lowest priority */
-//	NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;
-//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-//	NVIC_Init(&NVIC_InitStructure);
-//
-//	/* Enable and set EXTI0 Interrupt to the lowest priority */
-//	NVIC_InitStructure.NVIC_IRQChannel = EXTI1_IRQn;
-//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-//	NVIC_Init(&NVIC_InitStructure);
-
-//	/* Enable and set EXTI0 Interrupt to the lowest priority */
-//	NVIC_InitStructure.NVIC_IRQChannel = EXTI2_IRQn;
-//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-//	NVIC_Init(&NVIC_InitStructure);
-//
-//	/* Enable and set EXTI0 Interrupt to the lowest priority */
-//	NVIC_InitStructure.NVIC_IRQChannel = EXTI3_IRQn;
-//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-//	NVIC_Init(&NVIC_InitStructure);
-//
-//	/* Enable and set EXTI0 Interrupt to the lowest priority */
-//	NVIC_InitStructure.NVIC_IRQChannel = EXTI4_IRQn;
-//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-//	NVIC_Init(&NVIC_InitStructure);
-//
-//	/* Enable and set EXTI0 Interrupt to the lowest priority */
-//	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
-//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 7;
-//	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-//	NVIC_Init(&NVIC_InitStructure);
-}
-
 /*-----------------------------------------------------------*/
 
 static void prvSetupHardware(void)
@@ -817,12 +752,6 @@ static void prvSetupHardware(void)
 
 	/* DMA configuration -------------------------------------------------------*/
 	DMA_Configuration();
-
-	/* EXTI configuration ----------------------------------------------------- */
-//	EXTI_Configuration();
-
-	/* NVIC configuration ------------------------------------------------------*/
-	NVIC_Configuration();
 
 	/* ADC configuration -------------------------------------------------------*/
 	ADC_Configuration();
