@@ -132,22 +132,27 @@ int main()
 double diffSetPoint(double measure, double left, double right)
 {
 	if (left < 400 && right < 400) {
+		// wheels on center
 		return 1894 - measure;
 	}
+	else if (measure > 2000 && right > 400) {
+		// wheels to right and setpoint to tight
+		return right - measure;
+	}
+	else if (measure > 2000 && left > 400) {
+		// wheels to right and setpoint to left
+		return -(measure + left);
+	}
+	else if (left > 400) {
+		// wheels to left and setpoint to left
+		return left/2 + (measure - 2000);
+	}
+	else {
+		// wheels to left and setpoint to right
+		return -2 * (measure - 2000) + right;
+	}
+
 	return 0;
-//	else if (right > 400) {
-////		double res = (right - ((1 - (measure - 1190)/643) * 3200));
-////		double res = (right/4095.0)*(3846-1894);
-////		double res = right - (measure + 2048);
-////		double res = right/2 - measure;
-//		double res = right/2 - measure - 2048;
-//		return res;
-//	}
-//	else if (left > 400) {
-////		return left/2 - measure - 2048;
-//		return left/2 - measure;
-////		return -(left - ((measure - 1833)/667* 3200));
-//	}
 }
 
 static void prvCounterTask(void *pvParameters)
@@ -176,6 +181,7 @@ static void prvCounterTask(void *pvParameters)
 				double error = diffSetPoint(steering_feedback, steering_left, steering_right);
 	//			elapsed_time = xTaskGetTickCount() - last_time;
 				elapsed_time = 10;
+				elapsed_time = xTaskGetTickCount() - last_time;
 
 				cumulative_error += error * elapsed_time;
 				rate_error = (error - last_error) / elapsed_time; // / elapsed_time
@@ -231,7 +237,7 @@ static void prvCounterTask(void *pvParameters)
 				TIM_SetCompare3(TIM3, Timer3Period * (acceleration / 4095.0));
 			}
 
-			last_time = timer;
+			last_time = xTaskGetTickCount();
 
 		}
 		else {
