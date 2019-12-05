@@ -184,7 +184,7 @@ static void prvCounterTask(void *pvParameters)
 
 				last_error = error;
 
-				/*if (error != 0) {
+				if (error != 0) {
 				// Actuate with output from PID controller
 					if (output < -100) {
 			//				TIM_SetCompare1(TIM3, Timer3Period * (-output)/4000.0);
@@ -192,24 +192,25 @@ static void prvCounterTask(void *pvParameters)
 						TIM_SetCompare2(TIM3, 0);
 					}
 					else if (output > 100) {
-						TIM_SetCompare2(TIM3, Timer3Period * (output)/3500.0);
+						TIM_SetCompare2(TIM3, Timer3Period * output/3500.0);
 						TIM_SetCompare1(TIM3, 0);
 					}
-				} else */{
-					// Checks whether the steering is above the threshold
-
-					if (steering_right > STEERING_THRESHOLD_VALUE) {
-						TIM_SetCompare1(TIM3, (Timer3Period * steering_right) / MAX_STEERING);
-						TIM_SetCompare2(TIM3, 0);
-					} else if (steering_left > STEERING_THRESHOLD_VALUE) {
-						TIM_SetCompare1(TIM3, 0);
-						TIM_SetCompare2(TIM3, (Timer3Period * steering_left) / MAX_STEERING);
-					} else {
-						TIM_SetCompare1(TIM3, 0);
-						TIM_SetCompare2(TIM3, 0);
-					}
-
 				}
+//				else {
+//					// Checks whether the steering is above the threshold
+//
+//					if (steering_right > STEERING_THRESHOLD_VALUE) {
+//						TIM_SetCompare1(TIM3, (Timer3Period * steering_right) / MAX_STEERING);
+//						TIM_SetCompare2(TIM3, 0);
+//					} else if (steering_left > STEERING_THRESHOLD_VALUE) {
+//						TIM_SetCompare1(TIM3, 0);
+//						TIM_SetCompare2(TIM3, (Timer3Period * steering_left) / MAX_STEERING);
+//					} else {
+//						TIM_SetCompare1(TIM3, 0);
+//						TIM_SetCompare2(TIM3, 0);
+//					}
+//
+//				}
 
 				GPIO_SetBits(GPIOB, GPIO_Pin_12);
 				GPIO_SetBits(GPIOB, GPIO_Pin_13);
