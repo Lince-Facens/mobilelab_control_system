@@ -113,13 +113,6 @@ int main()
 				transmitSensors_TASK_PRIORITY,	/* The priority for the task */
 				NULL);
 
-//	xTaskCreate(prvTransmitPWMTask,				/* Pointer to the task entry function */
-//				"Actuators_PWM",				/* Name for the task */
-//				configMINIMAL_STACK_SIZE,		/* The size of the stack */
-//				NULL,							/* Pointer to parameters for the task */
-//				transmitPWM_TASK_PRIORITY,		/* The priority for the task */
-//				NULL);
-
 	xTaskCreate(prvCounterTask,				/* Pointer to the task entry function */
 				"Counter",				/* Name for the task */
 				configMINIMAL_STACK_SIZE,		/* The size of the stack */
@@ -148,185 +141,64 @@ static void prvCounterTask(void *pvParameters)
 
 	while (1)
 	{
-		//radio_status = GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_15);
 		// Still alive pin
 		GPIO_SetBits(GPIOB, GPIO_Pin_14);
 
-		//if (radio_status) {
-
-			if (steering_right != -1) {
-				steering_feedback = ADC_values[0];
-
-				// Calc PID controller output
-				double output = calcPIDOutput(steering_feedback, steering_left, steering_right);
-
-				if (output != 0) {
-				// Actuate with output from PID controller
-					if (output < -100) {
-						TIM_SetCompare1(TIM3, Timer3Period * (-output)/3500.0);
-						TIM_SetCompare2(TIM3, 0);
-					}
-					else if (output > 100) {
-						TIM_SetCompare2(TIM3, Timer3Period * output/3500.0);
-						TIM_SetCompare1(TIM3, 0);
-					}
-				}
-				// TODO: remove else section (after tests)
-				else {
-					// Checks whether the steering is above the threshold
-
-					if (steering_right > STEERING_THRESHOLD_VALUE) {
-						TIM_SetCompare1(TIM3, (Timer3Period * steering_right) / MAX_STEERING);
-						TIM_SetCompare2(TIM3, 0);
-					} else if (steering_left > STEERING_THRESHOLD_VALUE) {
-						TIM_SetCompare1(TIM3, 0);
-						TIM_SetCompare2(TIM3, (Timer3Period * steering_left) / MAX_STEERING);
-					} else {
-						TIM_SetCompare1(TIM3, 0);
-						TIM_SetCompare2(TIM3, 0);
-					}
-
-				}
-
-				GPIO_SetBits(GPIOB, GPIO_Pin_12);
-				GPIO_SetBits(GPIOB, GPIO_Pin_13);
-			}
-
+		if (steering_right != -1) {
 			steering_feedback = ADC_values[0];
-			steering_right    = ADC_values[1];
-			steering_left     = ADC_values[2];
-			acceleration      = ADC_values[3];
 
-			// The following order was assured in the last test.
+			// Calc PID controller output
+			double output = calcPIDOutput(steering_feedback, steering_left, steering_right);
 
-
-			// Old code to stop motor.
-	//		else {
-	//			GPIO_ResetBits(GPIOB, GPIO_Pin_12);
-	//			GPIO_ResetBits(GPIOB, GPIO_Pin_13);
-	//		}
-
-			if (TIM_GetCapture3(TIM3) != acceleration) {
-				if (acceleration > ACCELERATION_THRESHOLD_VALUE) {
-					TIM_SetCompare3(TIM3, Timer3Period * (acceleration / MAX_ACCELERATION));
-				} else {
-					TIM_SetCompare3(TIM3, 0);
+			if (output != 0) {
+			// Actuate with output from PID controller
+				if (output < -100) {
+					TIM_SetCompare1(TIM3, Timer3Period * (-output)/3500.0);
+					TIM_SetCompare2(TIM3, 0);
+				}
+				else if (output > 100) {
+					TIM_SetCompare2(TIM3, Timer3Period * output/3500.0);
+					TIM_SetCompare1(TIM3, 0);
 				}
 			}
+			// TODO: remove else section (after tests)
+			else {
+				// Checks whether the steering is above the threshold
 
-			updatePIDTickCount();
+				if (steering_right > STEERING_THRESHOLD_VALUE) {
+					TIM_SetCompare1(TIM3, (Timer3Period * steering_right) / MAX_STEERING);
+					TIM_SetCompare2(TIM3, 0);
+				} else if (steering_left > STEERING_THRESHOLD_VALUE) {
+					TIM_SetCompare1(TIM3, 0);
+					TIM_SetCompare2(TIM3, (Timer3Period * steering_left) / MAX_STEERING);
+				} else {
+					TIM_SetCompare1(TIM3, 0);
+					TIM_SetCompare2(TIM3, 0);
+				}
 
-		/*}
-		else {
-			GPIO_ResetBits(GPIOB, GPIO_Pin_12);
-			GPIO_ResetBits(GPIOB, GPIO_Pin_13);
-			TIM_SetCompare3(TIM3, 0);
-		}*/
+			}
 
-//		vTaskDelay(portTICK_PERIOD_MS / 100);
+			GPIO_SetBits(GPIOB, GPIO_Pin_12);
+			GPIO_SetBits(GPIOB, GPIO_Pin_13);
+		}
+
+		steering_feedback = ADC_values[0];
+		steering_right    = ADC_values[1];
+		steering_left     = ADC_values[2];
+		acceleration      = ADC_values[3];
+
+		if (TIM_GetCapture3(TIM3) != acceleration) {
+			if (acceleration > ACCELERATION_THRESHOLD_VALUE) {
+				TIM_SetCompare3(TIM3, Timer3Period * (acceleration / MAX_ACCELERATION));
+			} else {
+				TIM_SetCompare3(TIM3, 0);
+			}
+		}
+
+		updatePIDTickCount();
+
 	}
 }
-//
-//static void prvTransmitPWMTask(void *pvParameters)
-//{
-//	GPIO_SetBits(GPIOC, LED);
-//	TickType_t xNextWakeTime;
-//	xNextWakeTime = xTaskGetTickCount();
-//
-//	int test1 = 0, test2 = 0;
-//	int last;
-//	double total = 0;
-//
-//	while(1)
-//	{
-////		if (ADC_values[0] > 2000) {
-////			test1++;
-////
-////			if (last == 0) {
-////				total =  (test1) / (double)(test1 + test2);
-////				test1 = 1;
-////				test2 = 0;
-////			}
-////
-////			last = 1;
-////		}
-////		else {
-////			test2++;
-////
-////			last = 0;
-////		}
-//
-//		uint16_t steering_period_l = 0;
-//		uint16_t steering_period_r = 0;
-//		uint16_t brake_period = 0;
-//		uint16_t acceleration_period = 0;
-//
-//#ifdef DONKEY
-//		steering_period_l      = (ADC_values[0] * Timer3Period) / 4095.0;
-//		steering_period_r      = (ADC_values[1] * Timer3Period) / 4095.0;
-//		acceleration_period    = (ADC_values[3] * Timer3Period) / 4095.0;
-//
-//#endif
-//#ifdef ROBOTICS
-//		if (actuatorsMsgStatus) {
-//			steering_period_l;     = (steering_actuator * Timer3Period)/100;
-//			brake_period;        = (brake_actuator * Timer3Period)/100;
-//			acceleration_period; = (acceleration_actuator * Timer3Period)/100;
-//		}
-//#endif
-//
-//		/* Set steering value */
-//		if (TIM_GetCapture1(TIM3) != steering_period_l) {
-//			TIM_SetCompare1(TIM3, steering_period_l);
-//		}
-//		if (TIM_GetCapture2(TIM3) != steering_period_r) {
-//			TIM_SetCompare2(TIM3, steering_period_r);
-//		}
-//		/* Set brake value */
-//		if (TIM_GetCapture3(TIM3) != brake_period) {
-//			TIM_SetCompare3(TIM3, brake_period);
-//		}
-//		/* Set acceleration value */
-//		if (TIM_GetCapture4(TIM3) != acceleration_period) {
-//			TIM_SetCompare4(TIM3, acceleration_period);
-//		}
-//		//	GPIO_InitTypeDef GPIO_InitStructure;n
-//		GPIO_ResetBits(GPIOC, LED);
-//		vTaskDelayUntil(&xNextWakeTime, 50 / portTICK_PERIOD_MS);
-//		GPIO_SetBits(GPIOC, LED);
-//		vTaskDelayUntil(&xNextWakeTime, 200 / portTICK_PERIOD_MS);
-//
-//		vTaskDelay(portTICK_PERIOD_MS);
-//	}
-//}
-//
-///*-----------------------------------------------------------*/
-//static void prvReceiveActuatorsDataTask(void *pvParameters)
-//{
-//	int RxBufferCount;
-//	while (1)
-//	{
-//		/* I don't know why, but I need to do this twice.
-//		 * This is not totally stable, need a quick fix
-//		 * */
-//		while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
-//		while (USART_ReceiveData(USART1) != 's') ;
-//		while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
-//		while (USART_ReceiveData(USART1) != 's') ;
-//
-//		for (RxBufferCount = 1; RxBufferCount < countof(ActuatorsMessageRx); ++RxBufferCount) {
-//			while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
-//			ActuatorsMessageRx[RxBufferCount] = USART_ReceiveData(USART1);
-//
-//		}
-//
-//		if (prvVerifyActuatorsMessage()) {
-//			actuatorsMsgStatus = prvConstructActuatorsSensorsMessage();
-//		}
-//
-//		vTaskDelay(50 / portTICK_PERIOD_MS);
-//	}
-//}
 
 static void prvTransmitSensorsDataTask(void *pvParameters)
 {
@@ -436,10 +308,6 @@ uint8_t prvConstructActuatorsSensorsMessage(void)
 		steering_actuator = brake_actuator = acceleration_actuator = 0;
 	}
 
-//	steering_actuator     = steering_actuator     == 100 ? 99 : steering_actuator;
-//	brake_actuator 		  = brake_actuator        == 100 ? 99 : brake_actuator;
-//	acceleration_actuator = acceleration_actuator == 100 ? 99 : acceleration_actuator;
-
 	return ret;
 }
 
@@ -492,7 +360,6 @@ void TIM_Configuration(void)
 	TIM_OCInitTypeDef  TIM_OCInitStructure;
 
 	/* Compute the prescaler value */
-//	int PrescalerValue = (uint16_t) (SystemCoreClock / 24000000) - 1;
 	int PrescalerValue = (uint16_t) (SystemCoreClock / (50000)) - 1;
 	/* Time base configuration */
 	TIM_TimeBaseStructure.TIM_Period = Timer3Period ;
@@ -682,32 +549,21 @@ void GPIO_Configuration(void)
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
-	/* Configure ADC inputs */
-//	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
-//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-//	GPIO_Init(GPIOA, &GPIO_InitStructure);
-
 	/* Configure PWM outputs */
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure PWM outputs TIM3_CH3 */
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 }
 
@@ -777,56 +633,6 @@ void vApplicationIdleHook(void)
 		the value of configTOTAL_HEAP_SIZE in FreeRTOSConfig.h can be
 		reduced accordingly. */
 	}
-}
-
-void EXTI_Configuration(void)
-{
-	EXTI_InitTypeDef EXTI_InitStructure;
-
-	/* Connect EXTI0 Line to PA.00 pin */
-	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource0);
-
-	/* Configure EXTI0 line */
-	EXTI_InitStructure.EXTI_Line = EXTI_Line0;
-	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
-	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-	EXTI_Init(&EXTI_InitStructure);
-
-	/* Configure EXTI1 line */
-	EXTI_InitStructure.EXTI_Line = EXTI_Line1;
-	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
-	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-	EXTI_Init(&EXTI_InitStructure);
-
-//	/* Configure EXTI0 line */
-//	EXTI_InitStructure.EXTI_Line = EXTI_Line2;
-//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
-//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-//	EXTI_Init(&EXTI_InitStructure);
-//
-//	/* Configure EXTI1 line */
-//	EXTI_InitStructure.EXTI_Line = EXTI_Line3;
-//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
-//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-//	EXTI_Init(&EXTI_InitStructure);
-//
-//	/* Configure EXTI1 line */
-//	EXTI_InitStructure.EXTI_Line = EXTI_Line4;
-//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
-//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-//	EXTI_Init(&EXTI_InitStructure);
-//
-//	/* Configure EXTI1 line */
-//	EXTI_InitStructure.EXTI_Line = EXTI_Line5;
-//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
-//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-//	EXTI_Init(&EXTI_InitStructure);
 }
 
 #ifdef DEBUG
