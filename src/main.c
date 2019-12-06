@@ -40,7 +40,6 @@
 #define transmitSensors_TASK_PRIORITY				(tskIDLE_PRIORITY + 1)
 #define transmitPWM_TASK_PRIORITY					(tskIDLE_PRIORITY + 1)
 
-/* ----- LED definitions --------------------------------------------------- */
 #define RxBufferSize   5
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,10 +49,7 @@
 #define countof(a)   (sizeof(a) / sizeof(*(a)))
 
 /* Private variables ---------------------------------------------------------*/
-uint32_t status;
-
 uint8_t RxBuffer[RxBufferSize];
-uint8_t SensorsMessageTx[] = "s0000b0000a0000\n";
 uint8_t ActuatorsMessageRx[] = "s:000b:000a:000";
 uint16_t steering_actuator;
 uint16_t brake_actuator;
@@ -65,9 +61,7 @@ __IO uint8_t actuatorsMsgStatus = (uint8_t) 0;
 /* ----- Task definitions -------------------------------------------------- */
 static void prvReceiveActuatorsDataTask(void *pvParameters);
 static void prvTransmitSensorsDataTask(void *pvParameters);
-static void prvTransmitPWMTask(void *pvParameters);
 static void prvControlMotors(void *pvParameters);
-void prvConstructSensorsMessage(void);
 int prvIsNumber(char c);
 int prvCharToInt(char c);
 uint8_t prvConstructActuatorsSensorsMessage(void);
@@ -188,7 +182,7 @@ static void prvTransmitSensorsDataTask(void *pvParameters)
 	while (1) {
 		sendActuatorsMessage(ADC_values[0], ADC_values[1], ADC_values[2], ADC_values[3]);
 
-		vTaskDelayUntil(&wakeTime, 50 * portTICK_PERIOD_MS);
+		vTaskDelayUntil(&wakeTime, configTICK_RATE_HZ / 20); // 50 ms
 	}
 }
 
