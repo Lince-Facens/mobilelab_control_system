@@ -10,3 +10,6 @@
 *.hex
 *.map
 *.srec
+
+#Settings
+.settings/
