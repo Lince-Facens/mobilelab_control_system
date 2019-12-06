@@ -17,6 +17,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Private includes */
+#include "pid.h"
+
 /* Donkeycar or mobile robotics approach defines */
 #define DONKEY
 // #define ROBOTICS
@@ -65,7 +68,6 @@ uint16_t acceleration_actuator;
 uint16_t Timer3Period = (uint16_t) 665;
 __IO uint8_t actuatorsMsgStatus = (uint8_t) 0;
 uint64_t timer = 0;
-double Kp, Kd, Ki;
 uint8_t radio_status;
 
 /* ----- Private method definitions ---------------------------------------- */
@@ -136,28 +138,13 @@ int main()
 	while (1);
 }
 
-double diffSetPoint(double measure, double left, double right)
-{
-	int setpoint = 2048;
-	if (right > 400) {
-		setpoint += right / 2;
-	}
-	else if (left > 400) {
-		setpoint -= left / 2;
-	}
-
-	return -measure + setpoint;
-}
-
 static void prvCounterTask(void *pvParameters)
 {
 	GPIO_ResetBits(GPIOC, LED);
 	int last_time = -1, elapsed_time = -1;
-	double steering_right, steering_left, acceleration, steering_feedback, cumulative_error = 0, last_error, rate_error, output;
-	steering_right = steering_left = acceleration = steering_feedback = last_error = -1;
-	Kp = 6;
-	Kd = 5;
-	Kd = 1;
+	double steering_right, steering_left, acceleration, steering_feedback, output;
+	steering_right = steering_left = acceleration = steering_feedback = -1;
+	initPID();
 
 	while (1)
 	{
@@ -168,26 +155,14 @@ static void prvCounterTask(void *pvParameters)
 		//if (radio_status) {
 
 			if (steering_right != -1) {
-	//			timer++;
 				steering_feedback = ADC_values[0];
 
-				// Measure the diff and estimate the output of steering.
-				double error = diffSetPoint(steering_feedback, steering_left, steering_right);
-	//			elapsed_time = xTaskGetTickCount() - last_time;
-				elapsed_time = xTaskGetTickCount() - last_time;
+				// Calc PID controller output
+				double output = calcPIDOutput(steering_feedback, steering_left, steering_right);
 
-				cumulative_error += error * elapsed_time;
-				rate_error = (error - last_error) / elapsed_time; // / elapsed_time
-
-				output = Kp * error + Ki * cumulative_error + Kd * rate_error;
-	//			output = error;
-
-				last_error = error;
-
-				if (error != 0) {
+				if (output != 0) {
 				// Actuate with output from PID controller
 					if (output < -100) {
-			//				TIM_SetCompare1(TIM3, Timer3Period * (-output)/4000.0);
 						TIM_SetCompare1(TIM3, Timer3Period * (-output)/3500.0);
 						TIM_SetCompare2(TIM3, 0);
 					}
@@ -196,21 +171,22 @@ static void prvCounterTask(void *pvParameters)
 						TIM_SetCompare1(TIM3, 0);
 					}
 				}
-//				else {
-//					// Checks whether the steering is above the threshold
-//
-//					if (steering_right > STEERING_THRESHOLD_VALUE) {
-//						TIM_SetCompare1(TIM3, (Timer3Period * steering_right) / MAX_STEERING);
-//						TIM_SetCompare2(TIM3, 0);
-//					} else if (steering_left > STEERING_THRESHOLD_VALUE) {
-//						TIM_SetCompare1(TIM3, 0);
-//						TIM_SetCompare2(TIM3, (Timer3Period * steering_left) / MAX_STEERING);
-//					} else {
-//						TIM_SetCompare1(TIM3, 0);
-//						TIM_SetCompare2(TIM3, 0);
-//					}
-//
-//				}
+				// TODO: remove else section (after tests)
+				else {
+					// Checks whether the steering is above the threshold
+
+					if (steering_right > STEERING_THRESHOLD_VALUE) {
+						TIM_SetCompare1(TIM3, (Timer3Period * steering_right) / MAX_STEERING);
+						TIM_SetCompare2(TIM3, 0);
+					} else if (steering_left > STEERING_THRESHOLD_VALUE) {
+						TIM_SetCompare1(TIM3, 0);
+						TIM_SetCompare2(TIM3, (Timer3Period * steering_left) / MAX_STEERING);
+					} else {
+						TIM_SetCompare1(TIM3, 0);
+						TIM_SetCompare2(TIM3, 0);
+					}
+
+				}
 
 				GPIO_SetBits(GPIOB, GPIO_Pin_12);
 				GPIO_SetBits(GPIOB, GPIO_Pin_13);
@@ -238,7 +214,7 @@ static void prvCounterTask(void *pvParameters)
 				}
 			}
 
-			last_time = xTaskGetTickCount();
+			updatePIDTickCount();
 
 		/*}
 		else {
