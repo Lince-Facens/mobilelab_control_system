@@ -20,6 +20,7 @@
 /* Private includes */
 #include "pid.h"
 #include "peripherals.h"
+#include "messenger.h"
 
 /* Donkeycar or mobile robotics approach defines */
 #define DONKEY
@@ -182,20 +183,13 @@ static void prvControlMotors(void *pvParameters)
 
 static void prvTransmitSensorsDataTask(void *pvParameters)
 {
-	int i = 0;
+	TickType_t wakeTime = xTaskGetTickCount();
 
-	while (1)
-	{
-		prvConstructSensorsMessage();
+	while (1) {
+		sendActuatorsMessage(ADC_values[0], ADC_values[1], ADC_values[2], ADC_values[3]);
 
-		for (i = 0; i < countof(SensorsMessageTx); ++i) {
-			USART_SendData(USART1, SensorsMessageTx[i]);
-			while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
-		}
-
-		vTaskDelay(50 * portTICK_PERIOD_MS);
+		vTaskDelayUntil(&wakeTime, 50 * portTICK_PERIOD_MS);
 	}
-
 }
 
 int prvVerifyActuatorsMessage(void)
@@ -288,49 +282,6 @@ uint8_t prvConstructActuatorsSensorsMessage(void)
 	}
 
 	return ret;
-}
-
-/*
- * Mount message to send
- * Format: s:0000b:0000a:0000
- * Where s -> steering direction
- *       b -> brake
- *       a -> acceleration
- * */
-void prvConstructSensorsMessage(void)
-{
-	/* TODO: be sure that this is the actual order */
-	uint16_t steering_sensor     = 4095; // Channel 0
-	uint16_t brake_sensor        = ADC_values[0]; // Channel 2
-	uint16_t acceleration_sensor = ADC_values[3]; // Channel 3
-
-	if (ADC_values[2] > 400) {
-		steering_sensor = 4095 - ADC_values[2];
-	}
-	else if (ADC_values[1] > 400) {
-		steering_sensor = 4095 + ADC_values[1];
-	}
-
-	if (acceleration_sensor <= 400) {
-		acceleration_sensor = 0;
-	}
-
-	steering_sensor /= 2;
-
-	SensorsMessageTx[2] = '0' + (steering_sensor / 1000);
-	SensorsMessageTx[3] = '0' + (steering_sensor / 100) % 10;
-	SensorsMessageTx[4] = '0' + (steering_sensor / 10) % 10;
-	SensorsMessageTx[5] = '0' + steering_sensor % 10;
-
-	SensorsMessageTx[7] = '0' + brake_sensor / 1000;
-	SensorsMessageTx[8] = '0' + (brake_sensor / 100) % 10;
-	SensorsMessageTx[9] = '0' + (brake_sensor / 10) % 10;
-	SensorsMessageTx[10] = '0' + brake_sensor % 10;
-
-	SensorsMessageTx[12] = '0' + acceleration_sensor / 1000;
-	SensorsMessageTx[13] = '0' + (acceleration_sensor / 100) % 10;
-	SensorsMessageTx[14] = '0' + (acceleration_sensor / 10) % 10;
-	SensorsMessageTx[15] = '0' + acceleration_sensor % 10;
 }
 
 
