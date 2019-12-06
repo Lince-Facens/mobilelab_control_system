@@ -1,5 +1,14 @@
 /**
  * PID controller definition.
+ *
+ * Usage example:
+ *
+ * initPID();
+ * while(1) {
+ *     output = calcPIDOutput( measure, s_l, s_r );
+ *     ...
+ *     updatePIDTickCount();
+ * }
 */
 
 /* Includes */
@@ -14,8 +23,10 @@
 double cumulative_error, last_output;
 int last_tick_count;
 
-/* Public functions */
+/* Private functions */
 uint16_t calcPIDError(uint16_t measure, uint16_t steering_left, uint16_t steering_right);
+
+/* Public functions */
 double calcPIDOutput(uint16_t measure, uint16_t steering_left, uint16_t steering_right);
 void initPID();
 void updatePIDTickCount();
