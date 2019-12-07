@@ -7,7 +7,7 @@
 /* Private defines */
 #define LED	GPIO_Pin_13
 #define ADC1_DR ((uint32_t)0x4001244C)
-#define ARRAYSIZE 3
+#define ARRAYSIZE 4
 
 /* Public defines */
 #define TIM3PERIOD 665

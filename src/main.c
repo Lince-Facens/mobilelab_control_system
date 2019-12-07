@@ -115,10 +115,11 @@ int main()
 
 static void prvControlMotors(void *pvParameters)
 {
-	GPIO_ResetBits(GPIOC, LED);
+//	GPIO_ResetBits(GPIOC, LED);
 	double steering_right, steering_left, acceleration, steering_feedback;
 	steering_right = steering_left = acceleration = steering_feedback = -1;
 	initPID();
+	TickType_t wakeTime = xTaskGetTickCount();
 
 	while (1)
 	{
@@ -131,15 +132,15 @@ static void prvControlMotors(void *pvParameters)
 			// Calc PID controller output
 			double output = calcPIDOutput(steering_feedback, steering_left, steering_right);
 
-			if (output != 0) {
+			if (output > 0.1 || output < -0.1) {
 			// Actuate with output from PID controller
 				if (output < -100) {
-					TIM_SetCompare1(TIM3, TIM3PERIOD * (-output)/3500.0);
-					TIM_SetCompare2(TIM3, 0);
+					TIM_SetCompare2(TIM3, TIM3PERIOD * (-output)/2048.0);
+					TIM_SetCompare1(TIM3, 0);
 				}
 				else if (output > 100) {
-					TIM_SetCompare2(TIM3, TIM3PERIOD * output/3500.0);
-					TIM_SetCompare1(TIM3, 0);
+					TIM_SetCompare1(TIM3, TIM3PERIOD * output/2048.0);
+					TIM_SetCompare2(TIM3, 0);
 				}
 			}
 			// TODO: remove else section (after tests)
