@@ -126,32 +126,18 @@ static void prvControlMotors(void *pvParameters)
 			// Calc PID controller output
 			double output = calcPIDOutput(steering_feedback, steering_left, steering_right);
 
-			if (output > 0.1 || output < -0.1) {
 			// Actuate with output from PID controller
-				if (output < -100) {
-					TIM_SetCompare2(TIM3, TIM3PERIOD * (-output)/2048.0);
-					TIM_SetCompare1(TIM3, 0);
-				}
-				else if (output > 100) {
-					TIM_SetCompare1(TIM3, TIM3PERIOD * output/2048.0);
-					TIM_SetCompare2(TIM3, 0);
-				}
+			if (output < -100) {
+				TIM_SetCompare2(TIM3, TIM3PERIOD * (-output)/2048.0);
+				TIM_SetCompare1(TIM3, 0);
 			}
-			// TODO: remove else section (after tests)
+			else if (output > 100) {
+				TIM_SetCompare1(TIM3, TIM3PERIOD * output/2048.0);
+				TIM_SetCompare2(TIM3, 0);
+			}
 			else {
-				// Checks whether the steering is above the threshold
-
-				if (steering_right > STEERING_THRESHOLD_VALUE) {
-					TIM_SetCompare1(TIM3, (TIM3PERIOD * steering_right) / MAX_STEERING);
-					TIM_SetCompare2(TIM3, 0);
-				} else if (steering_left > STEERING_THRESHOLD_VALUE) {
-					TIM_SetCompare1(TIM3, 0);
-					TIM_SetCompare2(TIM3, (TIM3PERIOD * steering_left) / MAX_STEERING);
-				} else {
-					TIM_SetCompare1(TIM3, 0);
-					TIM_SetCompare2(TIM3, 0);
-				}
-
+				TIM_SetCompare1(TIM3, 0);
+				TIM_SetCompare2(TIM3, 0);
 			}
 
 			GPIO_SetBits(GPIOB, GPIO_Pin_12);

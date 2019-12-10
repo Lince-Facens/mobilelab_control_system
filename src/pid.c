@@ -42,7 +42,7 @@ double calcPIDOutput(uint16_t measure, uint16_t steering_left, uint16_t steering
 
 	double output = KP * error + KI * cumulative_error + KD * rate_error;
 
-	if (output > -0.1 && output < 0.1) {
+	if (fabs(error) < 400) {
 		output = 0;
 	}
 
