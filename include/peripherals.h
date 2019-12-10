@@ -8,6 +8,8 @@
 #define LED	GPIO_Pin_13
 #define ADC1_DR ((uint32_t)0x4001244C)
 #define ARRAYSIZE 4
+#define REVERSE_ACCELERATION_FLAG_PIN GPIO_Pin_15
+#define REVERSE_ACCELERATION_FLAG_PORT GPIOB
 
 /* Public defines */
 #define TIM3PERIOD 665

@@ -167,7 +167,8 @@ static void prvTransmitSensorsDataTask(void *pvParameters)
 	TickType_t wakeTime = xTaskGetTickCount();
 
 	while (1) {
-		sendActuatorsMessage(ADC_values[0], ADC_values[1], ADC_values[2], ADC_values[3]);
+
+		sendActuatorsMessage(ADC_values[3], ADC_values[1], ADC_values[2], ADC_values[3]);
 
 		vTaskDelayUntil(&wakeTime, configTICK_RATE_HZ / 20); // 50 ms
 	}

@@ -9,6 +9,7 @@
 #define MESSAGE_STEERING_CENTER (MESSAGE_STEERING_MAX / 2)
 #define MESSAGE_STEERING_MIN (MESSAGE_STEERING_MAX * MESSAGE_STEERING_THRESHOLD)
 #define MESSAGE_ACCELERATION_MIN (MESSAGE_ACCELERATION_MAX * MESSAGE_ACCELERATION_THRESHOLD)
+#define MESSAGE_REVERSE_ACCELERATION_MIN (MESSAGE_REVERSE_ACCELERATION_MAX * MESSAGE_REVERSE_ACCELERATION_THRESHOLD)
 
 #if MESSAGE_DEBUG
 
@@ -34,9 +35,10 @@ void sendValueMessage(char prefix, uint16_t value)
 	sendCharMessage('0' + value % 10);
 }
 
-void sendActuatorsMessage(uint16_t brake, uint16_t steeringRight, uint16_t steeringLeft, uint16_t acceleration)
+void sendActuatorsMessage(uint16_t reverse_acceleration, uint16_t steeringRight, uint16_t steeringLeft, uint16_t acceleration)
 {
 	uint16_t steering = MESSAGE_STEERING_CENTER;
+	uint8_t  reverse_acceleration_flag = GPIO_ReadInputDataBit(REVERSE_ACCELERATION_FLAG_PORT, REVERSE_ACCELERATION_FLAG_PIN);
 
 	if (steeringLeft > MESSAGE_STEERING_MIN) {
 		steering -= steeringLeft / 2;
@@ -44,12 +46,16 @@ void sendActuatorsMessage(uint16_t brake, uint16_t steeringRight, uint16_t steer
 		steering += steeringRight / 2;
 	}
 
-	if (acceleration <= MESSAGE_ACCELERATION_MIN) {
+	if (acceleration <= MESSAGE_ACCELERATION_MIN || reverse_acceleration_flag ) {
 		acceleration = 0;
 	}
 
+	if (reverse_acceleration <= MESSAGE_REVERSE_ACCELERATION_MIN) {
+		reverse_acceleration = 0;
+	}
+
 	sendValueMessage('s', steering);
-	sendValueMessage('b', brake);
+	sendValueMessage('r', reverse_acceleration);
 	sendValueMessage('a', acceleration);
 	sendCharMessage('\n');
 }
