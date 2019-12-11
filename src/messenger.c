@@ -50,7 +50,7 @@ void sendActuatorsMessage(uint16_t reverse_acceleration, uint16_t steeringRight,
 		acceleration = 0;
 	}
 
-	if (reverse_acceleration <= MESSAGE_REVERSE_ACCELERATION_MIN) {
+	if (reverse_acceleration <= MESSAGE_REVERSE_ACCELERATION_MIN || !reverse_acceleration_flag) {
 		reverse_acceleration = 0;
 	}
 
