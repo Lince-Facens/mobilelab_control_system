@@ -120,6 +120,14 @@ static void prvControlMotors(void *pvParameters)
 		// Still alive pin
 		GPIO_SetBits(GPIOB, GPIO_Pin_14);
 
+		// Checks whether the controller is disabled
+		if(!GPIO_ReadInputDataBit(GPIOA, CONTROL_ENABLED_PIN)) {
+			TIM_SetCompare1(TIM3, 0);
+			TIM_SetCompare2(TIM3, 0);
+			TIM_SetCompare3(TIM3, 0);
+			continue;
+		}
+
 		if (steering_right != -1) {
 			steering_feedback = ADC_values[0];
 
