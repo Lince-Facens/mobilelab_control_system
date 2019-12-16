@@ -11,11 +11,8 @@
 #define MESSAGE_ACCELERATION_MAX 4095
 #define MESSAGE_ACCELERATION_THRESHOLD 0.1
 
-#define MESSAGE_REVERSE_ACCELERATION_MAX 4095
-#define MESSAGE_REVERSE_ACCELERATION_THRESHOLD 0.1
-
 /**
- * Sends the actuators message formated as "s0000r0000a0000"
+ * Sends the actuators message formated as "s0000a0000"
  */
-void sendActuatorsMessage(uint16_t reverse_acceleration, uint16_t steeringLeft, uint16_t steeringRight, uint16_t acceleration);
+void sendActuatorsMessage(uint16_t steeringRight, uint16_t steeringLeft, uint16_t acceleration, uint8_t accelerationReversed);
 
