@@ -174,50 +174,64 @@ void GPIO_Configuration(void)
 	GPIO_InitTypeDef GPIO_InitStructure;
 
 	/* Configure ADC input pins */
+	// A0 - Steering Feedback (Analog) - The potentiometer value that indicates the wheel position
+	// A1 - Right Steering (Analog) - The right steering output from the data gatherer system
+	// A2 - Left Steering (Analog) - The left steering output from the data gatherer system
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Set up the LED outputs */
+	// C13 - Indicator Led (Digital) - Used as a visual indicator
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Pin = LED;
 	GPIO_Init(GPIOC, &GPIO_InitStructure);
 
 	/* Configure USART2 RTS and USART2 Tx as alternate function push-pull */
+	// A9 - Serial Tx (Digital)
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure USART2 CTS and USART2 Rx as input floating */
+	// A10 - Serial Rx (Digital) - Receiver for serial communication with the AI system 
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure PWM outputs */
+	// A6 - Right Steering (PWM)
+	// A7 - Left Steering (PWM)
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	/* Configure PWM outputs TIM3_CH3 */
+	// B0 - Acceleration (PWM) final for drive
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
-
+	
+	// B12 - Enable Left (Digital) - Whether the left steering is enabled
+	// B13 - Enable Right (Digital) - Whether the right steering is enabled
+	// B14 - Still alive (Digital) - Whether the system is alive or not
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 
 	/* Configure the reverse acceleration pin coming from the data gatherer system */
+	// B15 - Reverse Acceleration (Digital) - Whether the acceleration is backwards
 	GPIO_InitStructure.GPIO_Pin = REVERSE_ACCELERATION_FLAG_PIN;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(REVERSE_ACCELERATION_FLAG_PORT, &GPIO_InitStructure);
-
+	
+	// A8 - Control Enabled (Analog) - Whether the controller is enabled 
 	GPIO_InitStructure.GPIO_Pin = CONTROL_ENABLED_PIN;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
